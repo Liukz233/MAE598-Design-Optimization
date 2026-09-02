@@ -2,7 +2,7 @@
 
 - **Weight:** X%
 - **Status:** Pending details
-- **Final report:** Add `report/report.pdf) link when available
+- **Final report:** Add a link to `report/report.pdf` when available
 
 ## Problem
 
