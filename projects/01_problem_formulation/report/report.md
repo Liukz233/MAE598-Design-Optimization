@@ -14,7 +14,7 @@ This project formulates the topology optimization of a lightweight load-bearing 
 
 [Specify the engineering application, stakeholder, design domain dimensions, material, load magnitude and direction, support conditions, and why the stiffness-mass trade-off matters.]
 
-![Problem setup placeholder](../figures/problem_setup.png)
+<!-- Add the final schematic here after creating it: ![Problem setup](../figures/problem_setup.png) -->
 
 ## 2. Decision Variables
 
