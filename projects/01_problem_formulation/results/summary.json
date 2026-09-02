@@ -1,0 +1,32 @@
+{
+  "algorithm": "Python reproduction of the classic 88-line SIMP-OC method",
+  "benchmark": "symmetric half MBB beam",
+  "settings": {
+    "nelx": 120,
+    "nely": 40,
+    "volfrac": 0.5,
+    "penal": 3.0,
+    "rmin": 3.5,
+    "filter_type": 1,
+    "tolerance": 0.01,
+    "max_iterations": 250,
+    "young_solid": 1.0,
+    "young_void": 1e-09,
+    "poisson": 0.3,
+    "move_limit": 0.2
+  },
+  "number_of_elements": 4800,
+  "number_of_dofs": 9922,
+  "iterations": 90,
+  "final_compliance": 210.04057115979575,
+  "final_volume_fraction": 0.4999381727911479,
+  "final_max_density_change": 0.009921563514477594,
+  "final_gray_fraction": 0.24770833333333334,
+  "runtime_seconds": 6.613516590998188,
+  "software_versions": {
+    "python": "3.12.13",
+    "numpy": "2.3.5",
+    "scipy": "1.17.0",
+    "matplotlib": "3.10.8"
+  }
+}

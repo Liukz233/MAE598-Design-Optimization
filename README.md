@@ -20,7 +20,7 @@ OptiForge reflects the process of turning an initial design into a refined solut
 
 | Project | Topic | Weight | Workspace | Public Markdown report | Status |
 |---:|---|---:|---|---|---|
-| 1 | Problem formulation | 5% | [Workspace](projects/01_problem_formulation/) | [Open report](projects/01_problem_formulation/report/report.md) | In progress |
+| 1 | Problem formulation | 5% | [Workspace](projects/01_problem_formulation/) | [Open report](projects/01_problem_formulation/report/report.md) | Results generated |
 | 2 | Gradient descent | 5% | [Workspace](projects/02_gradient_descent/) | [Open template](projects/02_gradient_descent/report/report.md) | Awaiting brief |
 | 3 | Neural operator | 10% | [Workspace](projects/03_neural_operator/) | [Open template](projects/03_neural_operator/report/report.md) | Awaiting brief |
 | 4 | Engineering design | 10% | [Workspace](projects/04_engineering_design/) | [Open template](projects/04_engineering_design/report/report.md) | Awaiting brief |

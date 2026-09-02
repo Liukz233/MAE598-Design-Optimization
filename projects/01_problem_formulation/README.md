@@ -1,8 +1,8 @@
 # Project 1 - Optimization Problem Formulation
 
 - **Weight:** 5%
-- **Status:** In progress
-- **Selected topic:** SIMP topology optimization of a lightweight load-bearing bracket
+- **Status:** Formulation and computational result completed; ready for review
+- **Selected topic:** SIMP topology optimization of the symmetric half MBB beam
 - **Official brief:** [Project 1: Optimization Problem Formulation](https://designinformaticslab.github.io/DesignOptimization2025/project1_optimization_formulation.html)
 - **Primary report:** [`report/report.md`](report/report.md)
 
@@ -46,6 +46,24 @@ The Markdown report is the grading artifact. Code and computational results are 
 | `src/` | Reusable FEM, sensitivity, filtering, and OC code |
 | `figures/` | Problem schematic, convergence history, and final topology |
 | `results/` | Small numerical summaries and parameter files |
+
+## Reproduce the submitted result
+
+The calculation reproduces the official DTU example
+`top88(120, 40, 0.5, 3.0, 3.5, 1)` with a readable Python implementation.
+
+~~~bash
+pip install -r requirements.txt
+python projects/01_problem_formulation/src/top88.py
+~~~
+
+| Output | Link |
+|---|---|
+| Final topology | [PNG](figures/final_topology.png) |
+| Convergence plots | [PNG](figures/convergence.png) |
+| Iteration history | [CSV](results/history.csv) |
+| Final density field | [CSV](results/final_density.csv) |
+| Run summary | [JSON](results/summary.json) |
 
 ## Project-specific checklist
 
