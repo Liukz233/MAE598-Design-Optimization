@@ -1,0 +1,9 @@
+# Core scientific Python stack.
+# Pin exact versions in a project-specific environment when reproducibility requires it.
+numpy
+scipy
+pandas
+matplotlib
+jupyterlab
+torch
+pytest
