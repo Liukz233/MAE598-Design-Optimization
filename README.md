@@ -18,15 +18,15 @@ OptiForge reflects the process of turning an initial design into a refined solut
 
 ## Project index
 
-| Project | Topic | Weight | Workspace | Status |
-|---:|---|---:|---|---|
-| 1 | Problem formulation | 5% | [Open project](projects/01_problem_formulation/) | Pending details |
-| 2 | Gradient descent | 5% | [Open project](projects/02_gradient_descent/) | Pending details |
-| 3 | Neural operator | 10% | [Open project](projects/03_neural_operator/) | Pending details |
-| 4 | Engineering design | 10% | [Open project](projects/04_engineering_design/) | Pending details |
-| 5 | Optimal control and reinforcement learning | 10% | [Open project](projects/05_optimal_control_rl/) | Pending details |
+| Project | Topic | Weight | Workspace | Public Markdown report | Status |
+|---:|---|---:|---|---|---|
+| 1 | Problem formulation | 5% | [Workspace](projects/01_problem_formulation/) | [Open report](projects/01_problem_formulation/report/report.md) | In progress |
+| 2 | Gradient descent | 5% | [Workspace](projects/02_gradient_descent/) | [Open template](projects/02_gradient_descent/report/report.md) | Awaiting brief |
+| 3 | Neural operator | 10% | [Workspace](projects/03_neural_operator/) | [Open template](projects/03_neural_operator/report/report.md) | Awaiting brief |
+| 4 | Engineering design | 10% | [Workspace](projects/04_engineering_design/) | [Open template](projects/04_engineering_design/report/report.md) | Awaiting brief |
+| 5 | Optimal control and reinforcement learning | 10% | [Workspace](projects/05_optimal_control_rl/) | [Open template](projects/05_optimal_control_rl/report/report.md) | Awaiting brief |
 
-Each project folder is prepared for notebooks, reusable source code, figures, numerical results, and a final PDF report. Update the status and add a direct report link after each submission is ready.
+Project 1 explicitly requires a single publicly accessible Markdown report in the team repository. This repository therefore uses `report/report.md` as the stable primary report path for every project unless a later official brief specifies a different format. PDF exports are optional supplementary artifacts.
 
 ## Repository structure
 
@@ -37,7 +37,7 @@ Each project folder is prepared for notebooks, reusable source code, figures, nu
 ├── docs/                    # Submission and participation records
 ├── presentations/           # Slides for the assigned presentation
 ├── projects/                # Five graded course projects
-└── templates/               # Reusable project and LaTeX report templates
+└── templates/               # Reusable Markdown and optional LaTeX templates
 ~~~
 
 ## Quick start
@@ -60,19 +60,21 @@ jupyter lab
 
 ## Working conventions
 
-1. Keep exploratory work in each project's `notebooks/` directory.
-2. Move reusable functions into `src/` or the shared `common/` package.
-3. Save publication-ready figures in `figures/` and concise numerical outputs in `results/`.
-4. Export the final report as `report/report.pdf`; keeping this path stable keeps its GitHub URL stable.
-5. Record final results and reproduction instructions in the project README.
-6. Use meaningful commits such as `project-02: add line-search comparison`.
+1. Read the official assignment page before editing a project template.
+2. Transcribe its required sections and rubric into the project README.
+3. Keep the primary graded narrative in `report/report.md`.
+4. Keep exploratory work in `notebooks/`; move reusable functions into `src/` or `common/`.
+5. Save report-ready figures in `figures/` and concise numerical outputs in `results/`.
+6. Test Markdown math, relative image paths, and report links directly on GitHub.
+7. Use meaningful commits such as `project-02: add line-search comparison`.
 
 ## Reports and presentations
 
-- Start reports from [the LaTeX template](templates/report_template.tex).
-- Use [the submission checklist](docs/submission_checklist.md) before sharing a URL.
+- Start a future assignment from the [Markdown report template](templates/report_template.md).
+- Use the [project README template](templates/project_readme_template.md) to map official requirements to files.
+- The [LaTeX template](templates/report_template.tex) is retained only for optional PDF export.
+- Use the [submission checklist](docs/submission_checklist.md) before sharing a URL.
 - Store presentation materials in [presentations](presentations/).
-- Keep a lightweight record of participation in [the participation log](docs/participation_log.md).
 
 ## Academic integrity and course materials
 

@@ -1,3 +1,8 @@
+% OPTIONAL PDF EXPORT TEMPLATE
+% The primary course-project report is report/report.md unless an official brief
+% explicitly requires a PDF. Keep this file only for an optional archival or
+% presentation-quality export.
+
 \documentclass[11pt]{article}
 
 \usepackage[margin=1in]{geometry}
@@ -33,28 +38,31 @@
     {\large \semester\par}
     \vfill
     {\large Team: \teamname\par}
-    {\large Kangzheng Liu\par}
+    {\large \studentname\par}
     \vspace{1cm}
     {\large \today\par}
 \end{titlepage}
 
-\section{Problem Statement}
-State the design problem and its engineering context.
+\section{Problem Identification and Motivation}
+State the decision problem, stakeholders, engineering context, and why the problem is nontrivial.
 
-\section{Mathematical Formulation}
-Define the decision variables, objective function, constraints, and assumptions.
+\section{Variables and Parameters}
+Define design variables separately from state variables and fixed parameters. Include units, dimensions, types, and bounds.
 
-\section{Method}
-Describe the optimization algorithm, initialization, hyperparameters, and stopping criteria.
+\section{Objective Function}
+Write the complete scalar objective and state whether it is minimized or maximized.
 
-\section{Results}
-Present convergence behavior, numerical results, and appropriately labeled figures.
+\section{Constraints}
+Separate equality constraints, inequality constraints, and variable bounds. Explain the meaning of each.
 
-\section{Discussion}
-Interpret the results, limitations, and sensitivity to modeling choices.
+\section{Problem Classification}
+Classify the optimization problem and justify the classification from its mathematical structure.
 
-\section{Conclusion}
-Summarize the main findings.
+\section{Assumptions and Simplifications}
+State modeling assumptions, omitted effects, and their likely consequences.
+
+\section{Computational Solution and Results}
+Optional unless computation is required. Describe the method, results, interpretation, and reproducibility.
 
 \bibliographystyle{plain}
 % \bibliography{references}

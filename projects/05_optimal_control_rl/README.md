@@ -1,24 +1,31 @@
 # Project 5 - Optimal Control and Reinforcement Learning
 
 - **Weight:** 10%
-- **Status:** Pending assignment details
-- **Final report:** Add a link to `report/report.pdf` when available
+- **Status:** Awaiting the official assignment brief
+- **Primary report:** [`report/report.md`](report/report.md)
+- **Official brief:** Add the course link when released
 
-## Scope
+## Submission rule
 
-Summarize the assigned task here in your own words after the project brief is released.
+Use the public Markdown report above as the grading entry point unless the official brief for this project states otherwise. A PDF may be exported for presentation or archival use, but it is not the primary submission artifact.
 
-## Formulation
+## Assignment requirements
 
-Document the decision variables, objective function, constraints, assumptions, and expected outputs.
+When the brief is released, copy every required section and grading item into this table before writing.
 
-## Method
+| Requirement from official brief | Where addressed in report | Status |
+|---|---|---|
+| Add requirement | Add section link | Pending |
 
-Explain the selected method and record initialization, hyperparameters, stopping criteria, and implementation choices.
+## Workspace
 
-## Experiments and results
-
-Describe the test cases and evaluation metrics. Keep report-ready figures in `figures/` and concise numerical outputs in `results/`.
+| Path | Purpose |
+|---|---|
+| `report/report.md` | Single public-facing report and primary grading artifact |
+| `notebooks/` | Exploration and executable demonstrations |
+| `src/` | Reusable implementation |
+| `figures/` | Report-ready figures |
+| `results/` | Small, curated numerical outputs |
 
 ## Reproduction
 
@@ -28,9 +35,10 @@ Describe the test cases and evaluation metrics. Keep report-ready figures in `fi
 
 ## Deliverables
 
-- [ ] Problem formulation documented
+- [ ] Official brief linked and requirements transcribed
+- [ ] Public Markdown report follows the official section requirements
+- [ ] Mathematical notation and units are defined
 - [ ] Code or notebook runs from a clean environment
-- [ ] Results checked and interpreted
-- [ ] Final figures exported
-- [ ] `report/report.pdf` committed
-- [ ] Submission URL verified
+- [ ] Results are interpreted and traceable to committed code
+- [ ] GitHub equations, figures, tables, and links render correctly
+- [ ] Repository and report URLs work while signed out
