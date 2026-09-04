@@ -69,7 +69,7 @@ E_e(\rho_e)=E_{\min}+\rho_e^p(E_0-E_{\min}), \qquad
 \mathbf{K}(\boldsymbol{\rho})=\sum_{e=1}^{N}\mathbf{A}_e^{\mathsf T}E_e(\rho_e)\mathbf{k}_e^0\mathbf{A}_e.
 $$
 
-In these expressions, $\mathbf{k}_e^0$ is the unit-modulus stiffness matrix of element $e$, $\mathbf{u}_e$ contains its eight displacement degrees of freedom, and $\mathbf{A}_e$ maps element quantities into the global system. The small positive value $E_{\min}$ prevents the stiffness matrix from becoming singular when an element approaches void.
+In these expressions, $\mathbf{k}_e^0$ is the unit-modulus stiffness matrix of element $e$, and $\mathbf{u}_e$ contains its eight displacement degrees of freedom. The assembly matrix `A_e` maps element quantities into the global system. The small positive void modulus `E_min` prevents the stiffness matrix from becoming singular when an element approaches void.
 
 ## 4. Physical Meaning of the Objective and Constraints
 
@@ -87,17 +87,19 @@ The discretized problem is **continuous, deterministic, single-objective, high-d
 
 Most of these labels follow directly from the model: the 4,800 densities are continuous variables; all loads and parameters are fixed; there is one compliance objective; and every design must satisfy equilibrium, volume, boundary, and box constraints.
 
-The reason for calling the problem **nonconvex** is more specific than simply saying that it is nonlinear:
+The reason for calling the problem **nonconvex** is more specific than simply saying that it is nonlinear.
 
-1. With $p=3$, element stiffness varies as $\rho_e^3$, not linearly with density. Doubling an intermediate density can therefore increase its stiffness by roughly a factor of eight before accounting for $E_{\min}$.
-2. Eliminating the displacement state gives
+**Penalized stiffness.** With $p=3$, element stiffness varies as $\rho_e^3$, not linearly with density. Doubling an intermediate density can therefore increase its stiffness by roughly a factor of eight before accounting for the small void modulus.
 
-   $$
-   C(\boldsymbol{\rho})=\mathbf{F}^{\mathsf T}\mathbf{K}(\boldsymbol{\rho})^{-1}\mathbf{F}.
-   $$
+**Global equilibrium coupling.** Eliminating the displacement state gives
 
-   Changing one density alters the global stiffness matrix and redistributes the displacement and strain energy throughout the entire structure. The element contributions are therefore coupled rather than independent.
-3. The cubic penalty creates competing load paths. If one diagonal region becomes slightly denser, it becomes disproportionately stiffer, attracts more load, and may be retained while another plausible path disappears. Different paths can produce distinct locally optimal topologies with similar compliance.
+$$
+C(\boldsymbol{\rho})=\mathbf{F}^{\mathsf T}\mathbf{K}(\boldsymbol{\rho})^{-1}\mathbf{F}.
+$$
+
+Changing one density alters the global stiffness matrix and redistributes the displacement and strain energy throughout the entire structure. The element contributions are therefore coupled rather than independent.
+
+**Competing load paths.** The cubic penalty amplifies small differences between possible layouts. If one diagonal region becomes slightly denser, it becomes disproportionately stiffer, attracts more load, and may be retained while another plausible path disappears. Different paths can therefore produce distinct locally optimal topologies with similar compliance.
 
 The volume constraint and density bounds themselves are linear and define a convex feasible set. The nonconvexity arises primarily from the penalized density-stiffness relation combined with structural equilibrium. For comparison, the unpenalized case $p=1$ has an affine stiffness interpolation and a much more benign convex compliance structure under the same linear constraints. With $p=3$, the Optimality Criteria method is a local, gradient-based method: it can find a stationary design, but it does not certify the global optimum. Mesh resolution, filter radius, symmetry, continuation, and initialization can influence which local layout is obtained.
 
