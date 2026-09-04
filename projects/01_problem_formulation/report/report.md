@@ -7,197 +7,114 @@
 
 ## 1. Problem Identification and Motivation
 
-Structural engineers frequently need to create load-bearing members that are stiff but light. Examples include bridge cross-members, machine frames, robotic supports, and aerospace brackets. Adding material generally increases stiffness, but it also increases mass, material consumption, and manufacturing cost. The engineering decision is therefore not only how much material to use, but where that material contributes most effectively to the load path.
+Consider a lightweight structural member that must carry a downward load without deforming excessively. A structural designer would like to remove material to reduce mass and cost, but removing material also makes the member more flexible. The design question is therefore:
 
-This project considers the classical Messerschmitt-Bölkow-Blohm (MBB) beam benchmark. Symmetry permits optimization of one half of the beam. The rectangular design domain has an aspect ratio of 3:1 and is discretized into 120 by 40 square finite elements. A normalized downward unit load is applied at the upper-left corner. Horizontal displacement is suppressed along the left symmetry boundary, and vertical displacement is suppressed at the lower-right roller support.
+> **Where should a limited amount of material be placed so that the structure is as stiff as possible?**
 
-The design goal is to find the material distribution with minimum compliance while using no more than 50% of the full design-domain volume. This benchmark represents the material-allocation decision faced in lightweight structural design while remaining simple enough for a transparent implementation and verification.
+The classical half Messerschmitt-Bolkow-Blohm (MBB) beam is used as a clean model of this decision. Imagine the rectangular domain as a blank plate divided into 4,800 small cells. Each cell may contain anything from no material to solid material, but the design may use only 50% of the full plate. A unit load pushes downward at the upper-left corner, the left edge is a symmetry boundary, and the lower-right corner is supported by a vertical roller.
 
 ![Half MBB design domain, load, and supports](../figures/problem_setup.png)
 
-## 2. Decision Variables
+An effective design does not spread the material uniformly. Instead, it forms a few continuous, truss-like paths that carry the load to the constrained boundaries. This simplified benchmark captures the central material-allocation problem found in lightweight bridge members, machine frames, robotic supports, and aerospace structures. It is not intended to be a production-ready component; it isolates the stiffness-versus-mass trade-off so that the optimization formulation can be stated and verified clearly.
 
-The domain contains
+## 2. Decision Variables and Fixed Inputs
 
-$$
-N = 120 \times 40 = 4800.
-$$
-
-finite elements. Each element has a continuous relative-density design variable:
+The domain is discretized into
 
 $$
-0 \leq \rho_e \leq 1, \qquad e=1,\ldots,N.
+N=120\times40=4800
 $$
 
-The complete design vector is
+equal-size, four-node finite elements. The primary design variable is the relative density of each element, collected in the vector
 
 $$
-\boldsymbol{\rho} = [\rho_1,\rho_2,\ldots,\rho_N]^{\mathsf T} \in \mathbb{R}^{4800}.
+\boldsymbol{\rho}=[\rho_1,\rho_2,\ldots,\rho_N]^{\mathsf T}\in\mathbb{R}^{4800}, \qquad 0\leq\rho_e\leq1.
 $$
 
-A value of zero represents void and a value of one represents solid material. Intermediate values are allowed during continuous optimization and are discouraged through SIMP penalization.
+Here, $\rho_e=0$ represents void and $\rho_e=1$ represents solid material. Intermediate values are permitted by the continuous relaxation but penalized by SIMP. The displacement vector $\mathbf{u}$ is a state variable: it is determined by the density field through finite-element equilibrium rather than selected independently by the designer.
 
-| Symbol | Definition | Role and type | Units or dimensions | Value or bounds |
-|---|---|---|---|---|
-| `rho_e` | Relative density of element `e` | Continuous design variable | Dimensionless scalar | 0 to 1 |
-| `rho` | All element densities | Continuous design vector | 4800 entries | Box-constrained |
-| `u` | Global nodal displacement | FEM state vector | 9922 normalized DOFs | Determined by equilibrium |
-| `F` | Applied load | Fixed parameter | 9922 entries | One normalized downward unit load |
-| `v_e` | Element volume | Fixed parameter | Normalized volume | Equal for all elements |
-| `f_v` | Maximum material fraction | Fixed parameter | Dimensionless | 0.50 |
+| Quantity | Role | Value or dimension |
+|---|---|---|
+| $\boldsymbol{\rho}$ | Continuous design vector | 4,800 element densities |
+| $\mathbf{u}$ | FEM displacement state | 9,922 nodal degrees of freedom |
+| $\mathbf{F}$ | Prescribed load vector | Unit downward load at the upper-left node |
+| $f_v$ | Maximum volume fraction | 0.50 |
+| $E_0$, $E_{\min}$ | Solid and void moduli | 1 and $10^{-9}$ |
+| $p$ | SIMP penalty exponent | 3 |
+| $r_{\min}$ | Sensitivity-filter radius | 3.5 elements |
 
-The displacement vector is a state variable rather than a freely selected design variable. Once the density field is specified, the finite-element equilibrium equations determine the displacement.
+## 3. Objective and Complete Optimization Formulation
 
-### 2.1 SIMP material interpolation
-
-The element modulus is interpolated using the modified SIMP relation:
-
-$$
-E_e(\rho_e) = E_{\min} + \rho_e^p(E_0-E_{\min}).
-$$
-
-The numerical settings are
+For a fixed load, minimizing compliance is equivalent to maximizing global stiffness. The complete finite-dimensional problem is
 
 $$
-E_0=1, \qquad E_{\min}=10^{-9}, \qquad p=3.
+\begin{aligned}
+\underset{\boldsymbol{\rho},\mathbf{u}}{\operatorname{minimize}}\quad
+& C(\boldsymbol{\rho},\mathbf{u})
+=\mathbf{F}^{\mathsf T}\mathbf{u}
+=\sum_{e=1}^{N}E_e(\rho_e)\,\mathbf{u}_e^{\mathsf T}\mathbf{k}_e^0\mathbf{u}_e \\
+\operatorname{subject\ to}\quad
+& \mathbf{K}(\boldsymbol{\rho})\mathbf{u}=\mathbf{F}, \\
+& \frac{1}{N}\sum_{e=1}^{N}\rho_e\leq f_v=0.50, \\
+& 0\leq\rho_e\leq1, \qquad e=1,\ldots,N, \\
+& u_x=0 \quad \text{on the left symmetry boundary}, \\
+& u_y=0 \quad \text{at the lower-right roller support}.
+\end{aligned}
 $$
 
-Here, `E_0` is the normalized solid modulus. The very small value `E_min` prevents the global stiffness matrix from becoming singular when elements approach void. The exponent `p=3` makes intermediate-density material inefficient and drives the solution toward a predominantly solid-void topology.
-
-## 3. Objective Function
-
-The optimization minimizes structural compliance:
+The density-dependent material interpolation and assembled stiffness matrix are
 
 $$
-\min_{\boldsymbol{\rho}} C(\boldsymbol{\rho}).
+E_e(\rho_e)=E_{\min}+\rho_e^p(E_0-E_{\min}), \qquad
+\mathbf{K}(\boldsymbol{\rho})=\sum_{e=1}^{N}\mathbf{A}_e^{\mathsf T}E_e(\rho_e)\mathbf{k}_e^0\mathbf{A}_e.
 $$
 
-For the prescribed load, compliance is
+In these expressions, $\mathbf{k}_e^0$ is the unit-modulus stiffness matrix of element $e$, $\mathbf{u}_e$ contains its eight displacement degrees of freedom, and $\mathbf{A}_e$ maps element quantities into the global system. The small positive value $E_{\min}$ prevents the stiffness matrix from becoming singular when an element approaches void.
 
-$$
-C(\boldsymbol{\rho}) = \mathbf{F}^{\mathsf T}\mathbf{u}(\boldsymbol{\rho}).
-$$
+## 4. Physical Meaning of the Objective and Constraints
 
-Using element strain energies, the same objective is written explicitly as
+- **Objective:** $C=\mathbf{F}^{\mathsf T}\mathbf{u}$ is structural compliance. For the normalized unit load used here, it is also the downward displacement at the loaded node. A smaller value therefore means a stiffer structure.
+- **Equilibrium equality:** $\mathbf{K}(\boldsymbol{\rho})\mathbf{u}=\mathbf{F}$ requires the displacement field to satisfy static force balance for every proposed material layout.
+- **Volume inequality:** the average density cannot exceed 0.50. Because all elements have equal area and thickness, average density is exactly the fraction of available material used.
+- **Density bounds:** each element ranges from void to solid. SIMP keeps the problem continuous so that gradient-based optimization can be used.
+- **Boundary equalities:** the left edge cannot move horizontally but may slide vertically; the lower-right node cannot move vertically but may slide horizontally. These are the same degrees of freedom shown in the figure and enforced in the code.
 
-$$
-C(\boldsymbol{\rho}) = \sum_{e=1}^{N}\left[E_{\min}+\rho_e^p(E_0-E_{\min})\right]\mathbf{u}_e^{\mathsf T}\mathbf{k}_e^0\mathbf{u}_e.
-$$
+The volume constraint is expected to be active at the solution: with no competing penalty on material use, adding material generally increases stiffness. The computed final volume fraction of 0.499938 confirms this behavior.
 
-The matrix `k_e^0` is the unit-modulus stiffness matrix of a four-node square plane-stress element, and `u_e` contains its eight displacement degrees of freedom. Lower compliance means smaller load-point displacement and greater global stiffness. Because the benchmark uses normalized modulus, load, dimensions, and thickness, the reported compliance is also normalized rather than expressed in joules or newton-millimeters.
+## 5. Problem Classification and Source of Nonconvexity
 
-## 4. Constraints
+The discretized problem is **continuous, deterministic, single-objective, high-dimensional, constrained, nonlinear, nonconvex, and finite-element-equilibrium constrained**.
 
-### 4.1 Equality constraints
+Most of these labels follow directly from the model: the 4,800 densities are continuous variables; all loads and parameters are fixed; there is one compliance objective; and every design must satisfy equilibrium, volume, boundary, and box constraints.
 
-Static finite-element equilibrium must hold:
+The reason for calling the problem **nonconvex** is more specific than simply saying that it is nonlinear:
 
-$$
-\mathbf{K}(\boldsymbol{\rho})\mathbf{u}=\mathbf{F}.
-$$
+1. With $p=3$, element stiffness varies as $\rho_e^3$, not linearly with density. Doubling an intermediate density can therefore increase its stiffness by roughly a factor of eight before accounting for $E_{\min}$.
+2. Eliminating the displacement state gives
 
-The global stiffness matrix is assembled from the density-dependent element matrices:
+   $$
+   C(\boldsymbol{\rho})=\mathbf{F}^{\mathsf T}\mathbf{K}(\boldsymbol{\rho})^{-1}\mathbf{F}.
+   $$
 
-$$
-\mathbf{K}(\boldsymbol{\rho}) = \sum_{e=1}^{N}\mathbf{A}_e^{\mathsf T}\left[E_{\min}+\rho_e^p(E_0-E_{\min})\right]\mathbf{k}_e^0\mathbf{A}_e.
-$$
+   Changing one density alters the global stiffness matrix and redistributes the displacement and strain energy throughout the entire structure. The element contributions are therefore coupled rather than independent.
+3. The cubic penalty creates competing load paths. If one diagonal region becomes slightly denser, it becomes disproportionately stiffer, attracts more load, and may be retained while another plausible path disappears. Different paths can produce distinct locally optimal topologies with similar compliance.
 
-The boundary conditions are
+The volume constraint and density bounds themselves are linear and define a convex feasible set. The nonconvexity arises primarily from the penalized density-stiffness relation combined with structural equilibrium. For comparison, the unpenalized case $p=1$ has an affine stiffness interpolation and a much more benign convex compliance structure under the same linear constraints. With $p=3$, the Optimality Criteria method is a local, gradient-based method: it can find a stationary design, but it does not certify the global optimum. Mesh resolution, filter radius, symmetry, continuation, and initialization can influence which local layout is obtained.
 
-$$
-u_x=0 \quad \text{on the left symmetry boundary},
-$$
+## 6. Assumptions and Scope
 
-and
+The model deliberately makes the following simplifications:
 
-$$
-u_y=0 \quad \text{at the lower-right roller support}.
-$$
+- homogeneous, isotropic, linear-elastic material;
+- small strains and small displacements;
+- one static load case;
+- two-dimensional plane stress with normalized unit thickness;
+- square four-node elements on a fixed design domain;
+- normalized geometry, load, and elastic modulus;
+- sensitivity filtering with radius 3.5 elements;
+- no stress, buckling, fatigue, contact, manufacturing, uncertainty, or three-dimensional constraints.
 
-These equations enforce force balance, symmetry, and removal of rigid-body motion.
-
-### 4.2 Inequality constraint
-
-The design may use no more than half of the full-domain material:
-
-$$
-\frac{V(\boldsymbol{\rho})}{V_0} = \frac{\sum_{e=1}^{N}v_e\rho_e}{\sum_{e=1}^{N}v_e} \leq 0.50.
-$$
-
-Because all elements have equal volume, this reduces to
-
-$$
-\frac{1}{N}\sum_{e=1}^{N}\rho_e \leq 0.50.
-$$
-
-The constraint expresses the material or mass budget. It is expected to be active because additional material reduces compliance.
-
-### 4.3 Variable bounds
-
-Every design variable must satisfy
-
-$$
-0 \leq \rho_e \leq 1.
-$$
-
-### 4.4 Complete optimization statement
-
-The complete finite-dimensional problem is:
-
-$$
-\min_{\boldsymbol{\rho},\mathbf{u}} \quad \mathbf{F}^{\mathsf T}\mathbf{u}.
-$$
-
-It is subject to the equilibrium constraint
-
-$$
-\mathbf{K}(\boldsymbol{\rho})\mathbf{u}=\mathbf{F},
-$$
-
-the material constraint
-
-$$
-\frac{1}{N}\sum_{e=1}^{N}\rho_e \leq 0.50,
-$$
-
-the density bounds
-
-$$
-0 \leq \rho_e \leq 1, \qquad e=1,\ldots,N,
-$$
-
-and the stated symmetry and support boundary conditions.
-
-## 5. Problem Classification
-
-This formulation is classified as follows:
-
-- **Continuous:** the 4800 density variables can take any real value between zero and one.
-- **Single-objective:** only compliance is minimized.
-- **Constrained:** the problem contains finite-element equality constraints, one material-volume inequality, boundary conditions, and density bounds.
-- **Nonlinear:** stiffness depends nonlinearly on density through the cubic SIMP interpolation, and displacement satisfies `u(rho) = K(rho)^(-1) F`.
-- **Nonconvex:** the SIMP exponent `p=3` introduces a nonconvex interpolation, so different initializations or numerical choices can lead to different local optima.
-- **Deterministic:** loads, supports, material parameters, and the mesh are fixed; no random variables appear.
-- **Differentiable over the regularized domain:** the positive void modulus keeps the equilibrium solve well-defined and enables analytical compliance sensitivities.
-- **PDE/FE-constrained:** structural equilibrium is embedded in every objective evaluation.
-
-The ideal solid-void problem would impose binary densities and would be combinatorial. SIMP replaces that problem with a differentiable continuous relaxation, while penalization encourages a nearly binary result.
-
-## 6. Assumptions and Simplifications
-
-The formulation uses the following assumptions:
-
-- The material is homogeneous, isotropic, and linear elastic.
-- Strains and displacements are small.
-- Loading is static and contains one load case.
-- The model uses four-node square plane-stress elements with unit normalized thickness.
-- Geometry, load location, and supports do not change during optimization.
-- Material properties, dimensions, and loads are normalized.
-- A sensitivity filter with radius 3.5 elements is used to reduce checkerboards and mesh-scale features.
-- Stress, local buckling, fatigue, contact, manufacturing constraints, uncertainty, and three-dimensional behavior are excluded.
-- The stopping condition is a maximum design-variable change of 0.01, so the result is numerically converged to the tolerance rather than proven globally optimal.
-
-Consequently, this result demonstrates optimization formulation and load-path discovery; it is not a production-ready design. A real component would require dimensional material data, stress and buckling checks, manufacturing constraints, multiple load cases, and higher-fidelity validation.
+The result should therefore be interpreted as a demonstration of optimal material placement and load-path formation, not as a final manufacturable design. A production component would require dimensional material data, multiple load cases, stress and stability constraints, manufacturing restrictions, and higher-fidelity validation.
 
 ## 7. Computational Solution and Results
 
