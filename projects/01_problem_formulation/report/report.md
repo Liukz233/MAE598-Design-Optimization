@@ -49,11 +49,11 @@ For a fixed load, minimizing compliance is equivalent to maximizing global stiff
 
 $$
 \begin{aligned}
-\underset{\boldsymbol{\rho},\mathbf{u}}{\operatorname{minimize}}\quad
+\min_{\boldsymbol{\rho},\mathbf{u}}\quad
 & C(\boldsymbol{\rho},\mathbf{u})
 =\mathbf{F}^{\mathsf T}\mathbf{u}
 =\sum_{e=1}^{N}E_e(\rho_e)\,\mathbf{u}_e^{\mathsf T}\mathbf{k}_e^0\mathbf{u}_e \\
-\operatorname{subject\ to}\quad
+\text{s.t.}\quad
 & \mathbf{K}(\boldsymbol{\rho})\mathbf{u}=\mathbf{F}, \\
 & \frac{1}{N}\sum_{e=1}^{N}\rho_e\leq f_v=0.50, \\
 & 0\leq\rho_e\leq1, \qquad e=1,\ldots,N, \\
