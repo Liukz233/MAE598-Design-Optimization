@@ -328,60 +328,116 @@ def topology_optimization(
 
 
 def save_problem_setup(settings: Top88Settings, path: Path) -> None:
-    """Draw the half MBB domain, unit load, symmetry edge, and roller support."""
+    """Draw boundary conditions that exactly match ``half_mbb_load_and_supports``."""
 
-    fig, ax = plt.subplots(figsize=(10.5, 4.0))
+    fig, ax = plt.subplots(figsize=(11.5, 4.8))
+    navy = "#173A5E"
+    teal = "#1F8A8A"
+    orange = "#E67826"
     ax.add_patch(
         plt.Rectangle(
             (0, 0),
             settings.nelx,
             settings.nely,
             facecolor="#EAF1F8",
-            edgecolor="#173A5E",
+            edgecolor=navy,
             linewidth=2,
         )
     )
+
+    # force[1] = -1.0: downward vertical force at the upper-left node
     ax.annotate(
-        "Normalized unit load",
+        "",
         xy=(0, settings.nely),
-        xytext=(0, settings.nely + 12),
+        xytext=(0, settings.nely + 10),
+        arrowprops={"arrowstyle": "-|>", "color": orange, "lw": 2.8},
+    )
+    ax.text(
+        0,
+        settings.nely + 11.2,
+        r"$F_y=-1$ (unit load)",
         ha="center",
-        arrowprops={"arrowstyle": "-|>", "color": "#E67826", "lw": 2.5},
+        va="bottom",
         color="#7A3A0B",
-        fontsize=10,
+        fontsize=11,
+        weight="bold",
     )
-    y_locations = np.linspace(4, settings.nely - 4, 7)
-    ax.scatter(
-        np.full_like(y_locations, -1.5),
-        y_locations,
-        marker=">",
-        s=55,
-        color="#1F8A8A",
-        label="Horizontal symmetry constraint",
+
+    # symmetry_dofs: horizontal DOF fixed at every node on the left edge.
+    # Rollers against a vertical wall communicate u_x = 0 while u_y remains free.
+    wall_x = -3.0
+    ax.plot([wall_x, wall_x], [0, settings.nely], color=teal, linewidth=2)
+    for y in np.linspace(3.5, settings.nely - 3.5, 7):
+        ax.plot([wall_x + 0.75, -0.8], [y, y], color=teal, linewidth=1.4)
+        ax.add_patch(
+            plt.Circle(
+                (-1.5, y),
+                0.65,
+                facecolor="white",
+                edgecolor=teal,
+                linewidth=1.6,
+            )
+        )
+    for y in np.linspace(0.8, settings.nely - 0.8, 12):
+        ax.plot([wall_x - 1.0, wall_x], [y - 0.9, y], color=teal, linewidth=1.0)
+
+    # vertical_support = ndof - 1: vertical DOF fixed only at the lower-right node.
+    support_x = settings.nelx
+    ax.add_patch(
+        plt.Polygon(
+            [[support_x, 0], [support_x - 2.8, -3.8], [support_x + 2.8, -3.8]],
+            closed=True,
+            facecolor="white",
+            edgecolor=teal,
+            linewidth=1.8,
+        )
     )
-    ax.scatter(
-        [settings.nelx],
-        [-1.5],
-        marker="^",
-        s=110,
-        color="#1F8A8A",
-        label="Vertical roller support",
-    )
+    for x in (support_x - 1.4, support_x + 1.4):
+        ax.add_patch(
+            plt.Circle(
+                (x, -4.65),
+                0.65,
+                facecolor="white",
+                edgecolor=teal,
+                linewidth=1.5,
+            )
+        )
+    ax.plot([support_x - 4.0, support_x + 4.0], [-5.5, -5.5], color=teal, linewidth=1.8)
+    for x in np.linspace(support_x - 3.7, support_x + 3.2, 8):
+        ax.plot([x, x + 1.0], [-6.4, -5.5], color=teal, linewidth=1.0)
+
     ax.text(
         settings.nelx / 2,
         settings.nely / 2,
-        f"Half MBB design domain\n{settings.nelx} x {settings.nely} elements",
+        f"Symmetric half MBB design domain\n{settings.nelx} x {settings.nely} Q4 elements",
         ha="center",
         va="center",
         fontsize=13,
-        color="#173A5E",
+        color=navy,
         weight="bold",
     )
-    ax.set_xlim(-8, settings.nelx + 5)
-    ax.set_ylim(-7, settings.nely + 18)
+    ax.text(
+        0,
+        -9.3,
+        r"Left symmetry boundary: $u_x=0$ at every left-edge node; $u_y$ is free",
+        ha="left",
+        va="center",
+        color=teal,
+        fontsize=10.5,
+    )
+    ax.text(
+        settings.nelx,
+        -9.3,
+        r"Lower-right roller: $u_y=0$; $u_x$ is free",
+        ha="right",
+        va="center",
+        color=teal,
+        fontsize=10.5,
+    )
+    ax.set_xlim(-7, settings.nelx + 6)
+    ax.set_ylim(-12, settings.nely + 16)
     ax.set_aspect("equal")
     ax.axis("off")
-    ax.legend(loc="lower center", ncol=2, frameon=False)
     fig.tight_layout()
     fig.savefig(path, dpi=220, bbox_inches="tight")
     plt.close(fig)

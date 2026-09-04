@@ -20,7 +20,7 @@ The design goal is to find the material distribution with minimum compliance whi
 The domain contains
 
 $$
-N = 120 \times 40 = 4800
+N = 120 \times 40 = 4800.
 $$
 
 finite elements. Each element has a continuous relative-density design variable:
@@ -81,10 +81,7 @@ $$
 Using element strain energies, the same objective is written explicitly as
 
 $$
-C(\boldsymbol{\rho}) =
-\sum_{e=1}^{N}
-\left[E_{\min}+\rho_e^p(E_0-E_{\min})\right]
-\mathbf{u}_e^{\mathsf T}\mathbf{k}_e^0\mathbf{u}_e.
+C(\boldsymbol{\rho}) = \sum_{e=1}^{N}\left[E_{\min}+\rho_e^p(E_0-E_{\min})\right]\mathbf{u}_e^{\mathsf T}\mathbf{k}_e^0\mathbf{u}_e.
 $$
 
 The matrix `k_e^0` is the unit-modulus stiffness matrix of a four-node square plane-stress element, and `u_e` contains its eight displacement degrees of freedom. Lower compliance means smaller load-point displacement and greater global stiffness. Because the benchmark uses normalized modulus, load, dimensions, and thickness, the reported compliance is also normalized rather than expressed in joules or newton-millimeters.
@@ -102,12 +99,7 @@ $$
 The global stiffness matrix is assembled from the density-dependent element matrices:
 
 $$
-\mathbf{K}(\boldsymbol{\rho})=
-\sum_{e=1}^{N}
-\mathbf{A}_e^{\mathsf T}
-\left[E_{\min}+\rho_e^p(E_0-E_{\min})\right]
-\mathbf{k}_e^0
-\mathbf{A}_e.
+\mathbf{K}(\boldsymbol{\rho}) = \sum_{e=1}^{N}\mathbf{A}_e^{\mathsf T}\left[E_{\min}+\rho_e^p(E_0-E_{\min})\right]\mathbf{k}_e^0\mathbf{A}_e.
 $$
 
 The boundary conditions are
@@ -129,10 +121,7 @@ These equations enforce force balance, symmetry, and removal of rigid-body motio
 The design may use no more than half of the full-domain material:
 
 $$
-\frac{V(\boldsymbol{\rho})}{V_0}
-=
-\frac{\sum_{e=1}^{N}v_e\rho_e}{\sum_{e=1}^{N}v_e}
-\leq 0.50.
+\frac{V(\boldsymbol{\rho})}{V_0} = \frac{\sum_{e=1}^{N}v_e\rho_e}{\sum_{e=1}^{N}v_e} \leq 0.50.
 $$
 
 Because all elements have equal volume, this reduces to
@@ -156,8 +145,7 @@ $$
 The complete finite-dimensional problem is:
 
 $$
-\min_{\boldsymbol{\rho},\mathbf{u}}
-\quad \mathbf{F}^{\mathsf T}\mathbf{u}.
+\min_{\boldsymbol{\rho},\mathbf{u}} \quad \mathbf{F}^{\mathsf T}\mathbf{u}.
 $$
 
 It is subject to the equilibrium constraint
