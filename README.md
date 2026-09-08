@@ -12,9 +12,7 @@
 
 - **Team:** OptiForge
 - **Member:** Kangzheng Liu
-- **Format:** Individual team
 
-OptiForge reflects the process of turning an initial design into a refined solution through modeling, analysis, and iterative optimization.
 
 ## Project index
 
