@@ -1,0 +1,34 @@
+{
+  "all_checks_passed": true,
+  "element_stiffness_max_abs_error_vs_gauss_quadrature": 1.6653345369377348e-16,
+  "free_equilibrium_relative_residual": 3.4760196250283424e-12,
+  "compliance_work_energy_relative_error": 3.781928188845123e-12,
+  "prescribed_displacement_max_abs_error": 0.0,
+  "net_force_xy": [
+    4.476419235288631e-13,
+    -2.7414515102464065e-11
+  ],
+  "net_moment": -1.0529817018323229e-09,
+  "right_roller_vertical_reaction": 0.9999999999725855,
+  "final_density_min_max": [
+    0.0,
+    1.0
+  ],
+  "final_compliance_recomputed": 210.04057115979575,
+  "history_volume_fraction_min_max": [
+    0.49971832039782554,
+    0.5002740211634565
+  ],
+  "unfiltered_sensitivity_relative_fd_error": 3.795541659298933e-09,
+  "nonconvexity_witness": {
+    "definition": "rho_A(ex,ey)=0.5+0.1*(-1)^(ex+ey); rho_B=1-rho_A, with zero-based indices",
+    "volume_A": 0.5,
+    "volume_B": 0.5,
+    "compliance_A": 941.9618111563152,
+    "compliance_B": 981.9647399924122,
+    "compliance_midpoint": 1026.8430603758839,
+    "average_endpoint_compliance": 961.9632755743637,
+    "Jensen_violation": 64.87978480152015
+  },
+  "scope": "Checks mechanics, raw sensitivities, saved results, and stopping criterion. No KKT, global-optimality, or mesh-convergence certificate."
+}

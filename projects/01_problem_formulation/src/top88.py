@@ -253,14 +253,22 @@ def topology_optimization(
 
     design_density = np.full(number_of_elements, settings.volfrac)
     physical_density = design_density.copy()
-    history: list[dict[str, float | int]] = []
+    # Record state k=0, then evaluate each updated design before recording it.
+    # Thus compliance, volume and gray fraction in row k all describe rho^(k).
+    _, element_energy, compliance = finite_element_analysis(
+        physical_density, settings, edof, ke, force, free_dofs
+    )
+    history: list[dict[str, float | int]] = [{
+        "iteration": 0,
+        "compliance": compliance,
+        "volume_fraction": float(physical_density.mean()),
+        "max_density_change": float("nan"),  # No update exists at initialization.
+        "gray_fraction": float(np.mean((physical_density > 0.1) & (physical_density < 0.9))),
+    }]
 
     if verbose:
         print(" iter | compliance | volume | max change | gray fraction")
     for iteration in range(1, settings.max_iterations + 1):
-        _, element_energy, compliance = finite_element_analysis(
-            physical_density, settings, edof, ke, force, free_dofs
-        )
         sensitivity = (
             -settings.penal
             * (settings.young_solid - settings.young_void)
@@ -289,6 +297,9 @@ def topology_optimization(
         change = float(np.max(np.abs(updated - design_density)))
         design_density = updated
         physical_density = updated_physical
+        _, element_energy, compliance = finite_element_analysis(
+            physical_density, settings, edof, ke, force, free_dofs
+        )
         gray_fraction = float(
             np.mean((physical_density > 0.1) & (physical_density < 0.9))
         )
@@ -313,12 +324,6 @@ def topology_optimization(
             f"Optimization did not converge within {settings.max_iterations} iterations"
         )
 
-    # Re-evaluate the converged topology so the reported objective matches the
-    # final physical density rather than the pre-update design from the last loop.
-    _, _, final_compliance = finite_element_analysis(
-        physical_density, settings, edof, ke, force, free_dofs
-    )
-    history[-1]["compliance"] = final_compliance
     density_image = physical_density.reshape((settings.nelx, settings.nely)).T
     return Top88Result(
         density=density_image,
@@ -478,25 +483,31 @@ def save_outputs(
     volume = np.array([row["volume_fraction"] for row in result.history])
     change = np.array([row["max_density_change"] for row in result.history])
 
-    fig, axes = plt.subplots(1, 2, figsize=(11, 4.0))
+    fig, axes = plt.subplots(3, 1, figsize=(10, 8.3), sharex=True)
     axes[0].plot(iterations, compliance, color="#173A5E", linewidth=2)
-    axes[0].set(xlabel="Iteration", ylabel="Normalized compliance", title="Objective convergence")
+    axes[0].set(ylabel="Normalized compliance", title="(a) Objective: stiffness improves at the same material budget", yscale="log")
     axes[0].grid(alpha=0.25)
     axes[1].plot(iterations, volume, color="#1F8A8A", linewidth=2, label="Volume fraction")
-    axes[1].axhline(settings.volfrac, color="#E67826", linestyle="--", label="Constraint")
-    axes[1].plot(iterations, change, color="#7A3A0B", linewidth=1.5, label="Maximum change")
-    axes[1].set(xlabel="Iteration", title="Constraint and stopping metric")
+    axes[1].axhline(settings.volfrac, color="#E67826", linestyle="--", label=f"Upper bound = {settings.volfrac:.2f}")
+    axes[1].set(ylabel="Volume fraction", title="(b) Material constraint: zoomed scale shows bisection tolerance")
+    axes[1].ticklabel_format(axis="y", style="plain", useOffset=False)
+    axes[1].set_ylim(volume.min() - 0.00015, volume.max() + 0.00015)
     axes[1].grid(alpha=0.25)
-    axes[1].legend(frameon=False)
+    axes[1].legend(frameon=False, loc="lower right", fontsize=9)
+    axes[2].semilogy(iterations[1:], change[1:], color="#7A3A0B", linewidth=1.6, label="Maximum density change")
+    axes[2].axhline(settings.tolerance, color="#E67826", linestyle="--", label=f"Stopping threshold = {settings.tolerance:g}")
+    axes[2].set(xlabel="OC update k (k = 0 is the uniform initial design)", ylabel="Maximum density change", title="(c) Stopping metric: final update falls below the threshold")
+    axes[2].grid(alpha=0.25, which="both")
+    axes[2].legend(frameon=False, fontsize=9)
     fig.tight_layout()
     fig.savefig(figure_dir / "convergence.png", dpi=240, bbox_inches="tight")
     plt.close(fig)
 
     with (result_dir / "history.csv").open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(handle, fieldnames=list(result.history[0].keys()))
+        writer = csv.DictWriter(handle, fieldnames=list(result.history[0].keys()), lineterminator="\n")
         writer.writeheader()
         writer.writerows(result.history)
-    np.savetxt(result_dir / "final_density.csv", result.density, delimiter=",", fmt="%.8f")
+    np.savetxt(result_dir / "final_density.csv", result.density, delimiter=",", fmt="%.16e")
 
     final = result.history[-1]
     summary = {
@@ -505,7 +516,12 @@ def save_outputs(
         "settings": asdict(settings),
         "number_of_elements": settings.nelx * settings.nely,
         "number_of_dofs": 2 * (settings.nelx + 1) * (settings.nely + 1),
+        "number_of_free_dofs": 2 * (settings.nelx + 1) * (settings.nely + 1) - settings.nely - 2,
         "iterations": int(final["iteration"]),
+        "history_rows": len(result.history),
+        "history_convention": "Row k contains the state after k OC updates; row 0 is initialization and its change is NaN (not applicable).",
+        "initial_compliance": float(result.history[0]["compliance"]),
+        "compliance_reduction_percent": 100 * (1 - float(final["compliance"]) / float(result.history[0]["compliance"])),
         "final_compliance": float(final["compliance"]),
         "final_volume_fraction": float(final["volume_fraction"]),
         "final_max_density_change": float(final["max_density_change"]),
