@@ -16,7 +16,7 @@
 
 ## Project 1 submission
 
-**[Read the final Project 1 report](projects/01_problem_formulation/report/report.md)** — SIMP–OC topology optimization of the half MBB beam. Includes the complete formulation, results, reproducible code, and numerical verification.
+**[Read the final Project 1 report](projects/01_problem_formulation/report/report.md)** — SIMP–OC topology optimization of the half MBB beam. Includes the problem formulation, results, and reproducible code.
 
 ## Project index
 
