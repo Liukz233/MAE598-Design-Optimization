@@ -78,7 +78,7 @@ In the assembly expression, the matrix `A_e` extracts the eight element DOFs fro
 At equilibrium, the objective can also be evaluated from element energies:
 
 $$
-C=\mathbf{F}^{\mathsf T}\mathbf{u}=\mathbf{u}^{\mathsf T}\mathbf{K}\mathbf{u}=\sum_{e=1}^{N}E_e(\rho_e)\,\mathbf{u}_e^{\mathsf T}\mathbf{k}_e^0\mathbf{u}_e=2U.
+C=\mathbf{F}^{\mathsf T}\mathbf{u}=\mathbf{u}^{\mathsf T}\mathbf{K}\mathbf{u}=\sum_{e=1}^{N}E_e(\rho_e) \mathbf{u}_e^{\mathsf T}\mathbf{k}_e^0\mathbf{u}_e=2U.
 $$
 
 Here `U` is the elastic strain energy. Compliance equals **twice** the strain energy for a linear system loaded from zero. This identity uses the zero prescribed displacements: support reactions do no work.
@@ -124,7 +124,7 @@ $$
 $$
 
 $$
-C\!\left(\frac{\boldsymbol{\rho}^A+\boldsymbol{\rho}^B}{2}\right)=1026.8431>\frac{941.9618+981.9647}{2}=961.9633.
+C\left(\frac{\boldsymbol{\rho}^A+\boldsymbol{\rho}^B}{2}\right)=1026.8431>\frac{941.9618+981.9647}{2}=961.9633.
 $$
 
 A convex objective would satisfy the opposite inequality. This numerical counterexample demonstrates nonconvexity of the stated discrete SIMP problem, rather than inferring it merely from nonlinearity. These checkerboard fields are a mathematical test of the objective, not proposed optimized structures. The sensitivity filter discourages such patterns during optimization; it is not an additional feasibility constraint in the formulation above.
@@ -191,7 +191,7 @@ Here `z_e` is the element-center position measured in element widths. With filte
 For the equivalent volume constraint written as a density sum, the volume derivative is one. At an interior stationary point the unfiltered condition is `d_e + lambda = 0`. The classical damped OC rule uses the filtered derivative in the move-limited update
 
 $$
-\rho_e^{k+1}=\mathrm{clip}\!\left(\rho_e^k\sqrt{\frac{-\widehat d_e}{\lambda}},\ \max(0,\rho_e^k-m),\ \min(1,\rho_e^k+m)\right),\qquad m=0.2.
+\rho_e^{k+1}=\mathrm{clip}\left(\rho_e^k\sqrt{\frac{-\widehat d_e}{\lambda}},\ \max(0,\rho_e^k-m),\ \min(1,\rho_e^k+m)\right),\qquad m=0.2.
 $$
 
 The clip operation restricts its first argument to the interval given by the second and third arguments. Bisection chooses the multiplier `lambda`; its relative bracket tolerance is 0.001, matching top88. This is distinct from the density-change stopping criterion
