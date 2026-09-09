@@ -85,7 +85,17 @@ $$
 C(\boldsymbol{\rho})=\mathbf{F}_f^{\mathsf T}\mathbf{K}_{ff}(\boldsymbol{\rho})^{-1}\mathbf{F}_f.
 $$
 
-The volume constraint and density bounds define a convex set in density space. The cubic SIMP interpolation produces a nonconvex objective: it favors concentrated material along competing load paths. Averaging two efficient layouts can weaken their load paths, so the averaged design need not perform as well as the original designs. Different starting layouts can therefore lead to different local solutions. The OC method used here does not guarantee a global optimum.
+The volume constraint and density bounds define a convex set in density space. Cubic SIMP interpolation favors concentrated material along competing load paths and produces a nonconvex objective, as the following numerical check illustrates.
+
+On the same mesh, let design A alternate between densities 0.6 and 0.4 in a checkerboard pattern, and let design B swap these values. Both use 50% material. Their average is the uniform density-0.5 design. Evaluating all three designs under the same load and boundary conditions gives
+
+$
+C\left(\frac{\boldsymbol{\rho}^A+\boldsymbol{\rho}^B}{2}\right)=1026.8431>\frac{C(\boldsymbol{\rho}^A)+C(\boldsymbol{\rho}^B)}{2}=\frac{941.9618+981.9647}{2}=961.9633.
+$
+
+For a convex objective, the average design would have compliance no greater than the average of the two original values. This result violates that condition and demonstrates nonconvexity. The calculation is included in the [verification script](../src/verify_top88.py).
+
+Different starting layouts can lead to different local solutions. The OC method used here does not guarantee a global optimum.
 
 ## 6. Assumptions and Scope
 
