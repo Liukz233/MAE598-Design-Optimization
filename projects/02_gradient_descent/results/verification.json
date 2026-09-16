@@ -1,0 +1,41 @@
+{
+  "one_element_matrix": [
+    [
+      0.4945054945054945,
+      0.054945054945054944
+    ],
+    [
+      0.054945054945054944,
+      0.4945054945054945
+    ]
+  ],
+  "exact_eigenvalues": [
+    0.43956043956043955,
+    0.5494505494505495
+  ],
+  "exact_condition_number": 1.25,
+  "dense_sparse_check": "passed",
+  "energy_gradient_check": "passed",
+  "energy_gap_check": "passed",
+  "uniform_12x4": {
+    "diagonal_ratio": 4.0,
+    "affine_trial_energy": 0.01602564113782086,
+    "jacobi_lower_bound": 3885.8535928380043
+  },
+  "uniform_24x8": {
+    "diagonal_ratio": 4.0,
+    "affine_trial_energy": 0.01602564113782204,
+    "jacobi_lower_bound": 14815.728258792018
+  },
+  "uniform_48x16": {
+    "diagonal_ratio": 4.0,
+    "affine_trial_energy": 0.016025641137827923,
+    "jacobi_lower_bound": 57115.367064683436
+  },
+  "uniform_120x40": {
+    "diagonal_ratio": 4.0,
+    "affine_trial_energy": 0.016025641137864657,
+    "jacobi_lower_bound": 351039.0807011441
+  },
+  "project1_compliance_reproduced": 210.04057115900133
+}

@@ -1,0 +1,19 @@
+{
+  "status": "pilot experiments; not a final submission",
+  "python": "3.12.14",
+  "numpy": "2.3.5",
+  "scipy": "1.17.0",
+  "matplotlib": "3.10.8",
+  "platform": "Linux-6.18.44-x86_64-with-glibc2.39",
+  "seed": 598,
+  "blas_threads": 1,
+  "tolerance": 1e-06,
+  "gd_maxit": 120000,
+  "cg_maxit": 5000,
+  "density_sha256": "a8015a65dfd965614a1e3f1198d52c2ec274a564f428e38aba90d02ecf298db2",
+  "project1_source_sha256": "1f8094a82283b36ef3ab5fcbf5c21abb9b3fb71935d0a47a9c1ea7988cf8afbe",
+  "physical_domain": "[0,120] x [0,40], constant unit thickness, h=40/nely",
+  "load_support": "P1 unit point force and nodal roller unchanged",
+  "timing_note": "Single runs including convergence diagnostics; not speedup benchmarks",
+  "spectral_note": "Full spectra only for 12x4 and 24x8; sparse endpoints elsewhere"
+}

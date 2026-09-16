@@ -1,44 +1,59 @@
-# Project 2 - Gradient Descent
+# Project 2 — Ill-Conditioned Optimization
 
-- **Weight:** 5%
-- **Status:** Awaiting the official assignment brief
-- **Primary report:** [`report/report.md`](report/report.md)
-- **Official brief:** Add the course link when released
+**Topic:** Ill-conditioning in MBB beam analysis
 
-## Submission rule
+**Status:** Initial framework and verified pilot experiments; not yet a final submission
 
-Use the public Markdown report above as the grading entry point unless the official brief for this project states otherwise. A PDF may be exported for presentation or archival use, but it is not the primary submission artifact.
+**Member:** Kangzheng Liu · OptiForge
 
-## Assignment requirements
+Project 2 studies the displacement-equilibrium optimization required by Project 1's SIMP model. It reuses the half-MBB geometry, finite-element implementation, and final density field. The main experiment tests conditioning under mesh refinement; a second experiment tests preconditioning on the saved topology.
 
-When the brief is released, copy every required section and grading item into this table before writing.
+- [Working report, mathematical framework, and results](report/report.md)
+- [中文思路与评估](report/framework_zh.md)
+- [Official assignment](https://designinformaticslab.github.io/DesignOptimization2025/project2.html)
+- [Runnable demo](src/conditioning_demo.py)
 
-| Requirement from official brief | Where addressed in report | Status |
-|---|---|---|
-| Add requirement | Add section link | Pending |
+## Pilot findings
 
-## Workspace
+- Uniform meshes from 12 by 4 to 120 by 40: condition number increases from about 15,543 to 1,404,156 and remains large after Jacobi scaling.
+- On 12 by 4, GD takes 93,648 updates and CG takes 76 to meet the same physical residual tolerance of $10^{-6}$.
+- For the saved topology at $E_{\min}=10^{-9}$, Jacobi scaling lowers the condition number from about $1.19\times10^{12}$ to $1.13\times10^6$. CG exceeds its 5,000-update budget; Jacobi-PCG converges in 1,201 updates.
 
-| Path | Purpose |
+These are iteration results. They do not establish an end-to-end topology-optimization speedup.
+
+## Assignment coverage
+
+| Diagnostic | Evidence |
 |---|---|
-| `report/report.md` | Single public-facing report and primary grading artifact |
-| `notebooks/` | Exploration and executable demonstrations |
-| `src/` | Reusable implementation |
-| `figures/` | Report-ready figures |
-| `results/` | Small, curated numerical outputs |
+| D1: spectrum | Full small-mesh spectra and larger-system spectral endpoints |
+| D2: intrinsic test | Mesh growth and survival after diagonal scaling |
+| D3: baseline effect | GD histories, common residual tolerance, explicit iteration caps |
+| D4: remedy | CG and Jacobi-PCG comparisons; scaled condition numbers |
 
-## Reproduction
+The report also defines the model, variables, constraints, assumptions, and small-case verification.
 
-~~~bash
-# Add the exact command or notebook execution order here.
-~~~
+## Reproduce
 
-## Deliverables
+Python 3.12; run from the repository root:
 
-- [ ] Official brief linked and requirements transcribed
-- [ ] Public Markdown report follows the official section requirements
-- [ ] Mathematical notation and units are defined
-- [ ] Code or notebook runs from a clean environment
-- [ ] Results are interpreted and traceable to committed code
-- [ ] GitHub equations, figures, tables, and links render correctly
-- [ ] Repository and report URLs work while signed out
+```bash
+python -m pip install -r projects/02_gradient_descent/requirements.txt
+python projects/02_gradient_descent/src/conditioning_demo.py
+```
+
+To rerun without replacing committed outputs, add `--output /tmp/mae598-project2`.
+
+| Directory | Contents |
+|---|---|
+| `report/` | English working report and Chinese planning analysis |
+| `src/` | Reproducible pilot script |
+| `figures/` | Spectral, conditioning, and convergence plots |
+| `results/` | CSV histories, metrics, checks, and environment metadata |
+
+## Remaining work
+
+- Refine the working report and presentation around the measured mechanisms.
+- If adding runtime claims, collect repeated timings with consistent monitoring and separate setup costs.
+- Consider stronger SPD preconditioning only as an optional extension.
+
+The existing directory name is retained so repository links continue to work.
