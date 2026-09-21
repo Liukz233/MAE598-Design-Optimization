@@ -37,6 +37,7 @@ from top88 import (  # noqa: E402
     assemble_stiffness,
     element_dofs,
     element_stiffness,
+    finite_element_analysis,
     half_mbb_load_and_supports,
 )
 
@@ -153,7 +154,7 @@ def solve(A, b, method, spectral, scaled_spectral, reference, tol, maxit):
         "relative_compliance_error": float(abs(b @ x - b @ reference) / abs(b @ reference)),
         "seconds_with_diagnostics": time.perf_counter() - start,
         "step": alpha,
-    }, history
+    }, history, x
 
 
 def csv_write(path, rows):
@@ -178,9 +179,9 @@ def verify_small_case():
     check_b = np.array([1.0, 0.0])
     check_u = np.linalg.solve(A, check_b)
     check_spec = {"lambda_min": 40/91, "lambda_max": 50/91}
-    gd, gd_history = solve(check_A, check_b, "GD", check_spec, check_spec,
+    gd, gd_history, _ = solve(check_A, check_b, "GD", check_spec, check_spec,
                            check_u, 1e-6, 20)
-    cg_result, _ = solve(check_A, check_b, "CG", check_spec, check_spec,
+    cg_result, _, _ = solve(check_A, check_b, "CG", check_spec, check_spec,
                          check_u, 1e-6, 20)
     assert gd["converged"] and gd["iterations"] == 7
     assert cg_result["converged"] and cg_result["iterations"] == 2
@@ -270,6 +271,87 @@ def make_figures(output, condition_rows, solver_rows, histories, spectra):
     fig.savefig(figdir / "material_contrast.png", dpi=170); plt.close(fig)
 
 
+def project_comparison(output, rho, A, b, pcg_solution, pcg_metrics):
+    """Compare the P1 direct FE solution and P2 solvers on one fixed layout."""
+    figdir = output / "figures"
+    figdir.mkdir(exist_ok=True)
+    settings = Top88Settings(nelx=120, nely=40)
+    force, free = half_mbb_load_and_supports(120, 40)
+    p1_full, _, p1_compliance = finite_element_analysis(
+        rho, settings, element_dofs(120, 40), element_stiffness(0.3), force, free,
+    )
+    p1 = p1_full[free]
+    expected = json.loads((P1 / "results" / "summary.json").read_text())["final_compliance"]
+    np.testing.assert_allclose(p1_compliance, expected, rtol=1e-8)
+    budget = pcg_metrics["iterations"]
+    cg_equal, info = cg(A, b, rtol=1e-6, atol=0.0, maxiter=budget)
+    assert info == budget, "Update comparison if CG reaches tolerance within the shared budget"
+    rows = []
+    for name, x, count in (("Project 1 direct", p1, None),
+                           ("Project 2 CG", cg_equal, budget),
+                           ("Project 2 Jacobi-PCG", pcg_solution, budget)):
+        rows.append({"method": name, "iterations": count,
+                     "relative_residual": float(np.linalg.norm(A @ x-b)/np.linalg.norm(b)),
+                     "compliance": float(b @ x),
+                     "relative_displacement_error_vs_project1": float(np.linalg.norm(x-p1)/np.linalg.norm(p1)),
+                     "relative_compliance_error_vs_project1": float(abs(b @ x-b @ p1)/abs(b @ p1))})
+    assert rows[-1]["relative_residual"] <= 1e-6
+    assert rows[-1]["relative_displacement_error_vs_project1"] < 1e-3
+    csv_write(output / "results" / "project1_project2_comparison.csv", rows)
+
+    pcg_full = np.zeros_like(force)
+    pcg_full[free] = pcg_solution
+    p1_y = p1_full[1::2].reshape((41, 121), order="F")
+    pcg_y = pcg_full[1::2].reshape((41, 121), order="F")
+    scale = np.max(np.abs(p1_y))
+    plt.rcParams.update({"font.size": 10, "axes.spines.top": False,
+                         "axes.spines.right": False})
+    fig, axes = plt.subplots(2, 2, figsize=(11, 6.8), layout="constrained")
+    vmin, vmax = np.min(-p1_y/scale), np.max(-p1_y/scale)
+    for ax, values, label in zip(axes[0], (-p1_y/scale, -pcg_y/scale),
+                                ("(a) Project 1: direct FE solve", "(b) Project 2: Jacobi-PCG")):
+        im = ax.imshow(values, extent=(0, 120, 0, 40), origin="upper",
+                       cmap="viridis", vmin=vmin, vmax=vmax)
+        ax.set(title=label, xlabel="x", ylabel="y")
+        fig.colorbar(im, ax=ax, shrink=0.7, label="Normalized downward displacement")
+    err = np.abs(pcg_y-p1_y)/scale
+    im = axes[1, 0].imshow(err, extent=(0, 120, 0, 40), origin="upper", cmap="magma")
+    axes[1, 0].set(title="(c) Displacement difference", xlabel="x", ylabel="y")
+    fig.colorbar(im, ax=axes[1, 0], shrink=0.7, format="%.1e", label="Normalized difference")
+    ax = axes[1, 1]
+    values = [r["relative_residual"] for r in rows[1:]]
+    ax.bar(["CG", "Jacobi-PCG"], values, color=["#ba5a38", "#167d8d"], width=0.55)
+    for x, value in enumerate(values):
+        ax.text(x, value*1.8, f"{value:.2e}", ha="center", fontsize=10)
+    ax.axhline(1e-6, color="#555555", ls="--", label="Tolerance: 1e-6")
+    ax.set(yscale="log", ylim=(1e-8, 1), ylabel="Relative equilibrium residual",
+           title=f"(d) Same layout, same budget: {budget:,} updates")
+    ax.legend(loc="upper right"); ax.grid(axis="y", alpha=0.2)
+    fig.suptitle("Project 1 and Project 2: displacement agreement and solver convergence", fontsize=13)
+    fig.savefig(figdir / "project1_project2_comparison.png", dpi=180)
+    plt.close(fig)
+
+    fig = plt.figure(figsize=(11, 3.6), facecolor="#f6f8fa")
+    fig.text(0.045, 0.9, "PROJECT 2  /  ILL-CONDITIONED OPTIMIZATION", color="#173a5e", fontsize=16, weight="bold")
+    fig.text(0.045, 0.81, "From an optimized beam to a reliable equilibrium solver", color="#303e4a", fontsize=12)
+    ax = fig.add_axes([0.045, 0.24, 0.39, 0.44])
+    ax.imshow(rho.reshape((40, 120), order="F"), cmap="gray_r", vmin=0, vmax=1)
+    ax.axis("off"); ax.set_title("Project 1: material layout", loc="left", fontsize=11)
+    ax = fig.add_axes([0.55, 0.25, 0.4, 0.43])
+    case = "optimized_120x40_Emin_1e-09"
+    for method, color in (("CG", "#ba5a38"), ("Jacobi-PCG", "#167d8d")):
+        with (output / "results" / f"history_{case}_{method}.csv").open() as f:
+            history = list(csv.DictReader(f))
+        ax.semilogy([int(r["iteration"]) for r in history],
+                    [float(r["relative_residual"]) for r in history], color=color, label=method, lw=2)
+    ax.axhline(1e-6, color="#777777", ls=":")
+    ax.set(xlabel="Iteration", ylabel="Residual", title="Project 2: iterative convergence")
+    ax.legend(fontsize=9); ax.grid(alpha=0.15)
+    fig.text(0.045, 0.09, "OptiForge  |  Kangzheng Liu  |  MAE 598/494 Design Optimization", fontsize=10, color="#536471")
+    fig.savefig(figdir / "project2_cover.png", dpi=180, facecolor=fig.get_facecolor())
+    plt.close(fig)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, default=PROJECT)
@@ -341,13 +423,15 @@ def main():
             methods = ["GD", "Jacobi-GD"] + methods
         for method in methods:
             cap = args.gd_maxit if "GD" in method else args.cg_maxit
-            metrics, history = solve(A, b, method, raw, scaled, u, 1e-6, cap)
+            metrics, history, solution = solve(A, b, method, raw, scaled, u, 1e-6, cap)
             solver_rows.append({"case": name, **metrics})
             histories[(name, method)] = history
             csv_write(results / f"history_{name}_{method}.csv", history)
             print(f"  {method}: {metrics['iterations']} iterations, "
                   f"residual {metrics['relative_residual']:.3e}, "
                   f"converged {metrics['converged']}", flush=True)
+            if density is not None and emin == 1e-9 and method == "Jacobi-PCG":
+                project_comparison(output, rho, A, b, solution, metrics)
         csv_write(results / "conditioning.csv", condition_rows)
         csv_write(results / "solvers.csv", solver_rows)
     make_figures(output, condition_rows, solver_rows, histories, spectra)

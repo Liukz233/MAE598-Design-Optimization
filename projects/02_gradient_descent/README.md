@@ -1,13 +1,14 @@
 # Project 2 — Ill-Conditioned Optimization
 
+![Project 2 cover: optimized beam and equilibrium convergence](figures/project2_cover.png)
+
 **Ill-Conditioning in MBB Beam Analysis**
 
 Kangzheng Liu · OptiForge · MAE 598/494 Design Optimization
 
-The project studies equilibrium as energy minimization for the half MBB beam from Project 1. It examines conditioning under mesh refinement and compares gradient descent, conjugate gradient, and Jacobi preconditioning.
+Project 1 optimized the beam's material layout. Project 2 studies the equilibrium solve within that workflow: why gradient descent slows as the mesh is refined, and how CG and Jacobi preconditioning improve iterative convergence. The report includes a direct comparison with the Project 1 displacement solution.
 
 - **[Submission report](report/report.md)**
-- [中文译稿](report/report_zh.md)
 - [Official assignment](https://designinformaticslab.github.io/DesignOptimization2025/project2.html)
 - [Code](src/conditioning_demo.py) · [Numerical results](results/) · [Figures](figures/)
 
