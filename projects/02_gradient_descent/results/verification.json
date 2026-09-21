@@ -14,6 +14,9 @@
     0.5494505494505495
   ],
   "exact_condition_number": 1.25,
+  "hand_check_gd_updates": 7,
+  "hand_check_cg_updates": 2,
+  "hand_check_gd_residual_formula": "9**(-k)",
   "dense_sparse_check": "passed",
   "energy_gradient_check": "passed",
   "energy_gap_check": "passed",

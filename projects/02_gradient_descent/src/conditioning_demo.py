@@ -1,4 +1,4 @@
-"""Pilot experiments for Project 2; reuse the unchanged Project 1 FE model.
+"""Reproduce Project 2: conditioning and solution of the half-MBB energy problem.
 
 Run from any working directory. Outputs stay inside Project 2 by default.
 The default run measures the original 120x40 layout as well as a mesh sweep.
@@ -26,7 +26,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy
-from scipy.sparse import diags
+from scipy.sparse import csr_matrix, diags
 from scipy.sparse.linalg import cg, eigsh, spsolve
 
 PROJECT = Path(__file__).resolve().parents[1]
@@ -94,7 +94,7 @@ def solve(A, b, method, spectral, scaled_spectral, reference, tol, maxit):
     """Every method is judged by the true, unscaled physical residual.
 
     Timings include diagnostic work, but exclude assembly, eigenanalysis,
-    and reference solution. They are pilot timings, not optimized benchmarks.
+    and reference solution. The report compares iterations at a common tolerance.
     """
     normb = np.linalg.norm(b)
     if normb == 0:
@@ -174,6 +174,20 @@ def verify_small_case():
     np.testing.assert_allclose(A, expected, rtol=1e-13, atol=1e-15)
     ev = np.linalg.eigvalsh(A)
     np.testing.assert_allclose(ev, np.array([40, 50]) / 91.0, rtol=1e-13)
+    check_A = csr_matrix(A)
+    check_b = np.array([1.0, 0.0])
+    check_u = np.linalg.solve(A, check_b)
+    check_spec = {"lambda_min": 40/91, "lambda_max": 50/91}
+    gd, gd_history = solve(check_A, check_b, "GD", check_spec, check_spec,
+                           check_u, 1e-6, 20)
+    cg_result, _ = solve(check_A, check_b, "CG", check_spec, check_spec,
+                         check_u, 1e-6, 20)
+    assert gd["converged"] and gd["iterations"] == 7
+    assert cg_result["converged"] and cg_result["iterations"] == 2
+    np.testing.assert_allclose(
+        [r["relative_residual"] for r in gd_history],
+        [9.0**(-r["iteration"]) for r in gd_history], rtol=1e-8, atol=1e-15,
+    )
     small, b = build_system(6, 2)
     dense = np.linalg.eigvalsh(small.toarray())
     sparse = spectrum(small)
@@ -190,7 +204,11 @@ def verify_small_case():
     gap = energy(x) - energy(u)
     np.testing.assert_allclose(gap, 0.5 * (x-u) @ (small @ (x-u)), rtol=1e-10)
     return {"one_element_matrix": A.tolist(), "exact_eigenvalues": [40/91, 50/91],
-            "exact_condition_number": 1.25, "dense_sparse_check": "passed",
+            "exact_condition_number": 1.25,
+            "hand_check_gd_updates": gd["iterations"],
+            "hand_check_cg_updates": cg_result["iterations"],
+            "hand_check_gd_residual_formula": "9**(-k)",
+            "dense_sparse_check": "passed",
             "energy_gradient_check": "passed", "energy_gap_check": "passed"}
 
 
@@ -335,7 +353,7 @@ def main():
     make_figures(output, condition_rows, solver_rows, histories, spectra)
     (results / "verification.json").write_text(json.dumps(verification, indent=2) + "\n")
     metadata = {
-        "status": "pilot experiments; not a final submission",
+        "experiment": "Project 2 half-MBB conditioning and solver comparison",
         "python": platform.python_version(), "numpy": np.__version__,
         "scipy": scipy.__version__, "matplotlib": matplotlib.__version__,
         "platform": platform.platform(), "seed": 598,
@@ -349,7 +367,7 @@ def main():
         "spectral_note": "Full spectra only for 12x4 and 24x8; sparse endpoints elsewhere",
     }
     (results / "metadata.json").write_text(json.dumps(metadata, indent=2) + "\n")
-    print("Pilot outputs written to", output, flush=True)
+    print("Results written to", output, flush=True)
 
 
 if __name__ == "__main__":
