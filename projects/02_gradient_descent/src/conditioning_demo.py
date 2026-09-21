@@ -237,11 +237,14 @@ def make_figures(output, condition_rows, solver_rows, histories, spectra):
     fig.savefig(figdir / "eigenvalue_spectra.png", dpi=170); plt.close(fig)
 
     for case in ["uniform_24x8", "optimized_120x40_Emin_1e-09"]:
-        fig, axes = plt.subplots(1, 2, figsize=(10, 3.8), layout="constrained")
         uniform_case = case.startswith("uniform")
-        metrics = ("relative_residual", "relative_residual" if uniform_case else "relative_energy_gap")
+        fig, axes = plt.subplots(1, 2 if uniform_case else 1,
+                                 figsize=(10, 3.8) if uniform_case else (6.5, 3.8),
+                                 layout="constrained", squeeze=False)
+        axes = axes.ravel()
+        metrics = ("relative_residual",) * len(axes)
         max_iteration = 0
-        for method in ("GD", "Jacobi-GD", "CG", "Jacobi-PCG"):
+        for method in (("GD", "CG") if uniform_case else ("CG", "Jacobi-PCG")):
             rows = histories.get((case, method))
             if rows is None:
                 continue
@@ -303,6 +306,15 @@ def project_comparison(output, rho, A, b, pcg_solution, pcg_metrics):
     pcg_full[free] = pcg_solution
     p1_y = p1_full[1::2].reshape((41, 121), order="F")
     pcg_y = pcg_full[1::2].reshape((41, 121), order="F")
+    # Average the four nodal values onto each element, then mask only the plot.
+    # All densities and DOFs remain in the original SIMP equilibrium solve.
+    visible = rho.reshape((40, 120), order="F") >= 0.5
+    def material_field(nodal):
+        values = (nodal[:-1, :-1] + nodal[1:, :-1]
+                  + nodal[:-1, 1:] + nodal[1:, 1:]) / 4.0
+        return np.ma.array(values, mask=~visible)
+    p1_y, pcg_y = material_field(p1_y), material_field(pcg_y)
+    assert p1_y.count() == np.count_nonzero(visible)
     scale = np.max(np.abs(p1_y))
     plt.rcParams.update({"font.size": 10, "axes.spines.top": False,
                          "axes.spines.right": False})
@@ -327,7 +339,7 @@ def project_comparison(output, rho, A, b, pcg_solution, pcg_metrics):
     ax.set(yscale="log", ylim=(1e-8, 1), ylabel="Relative equilibrium residual",
            title=f"(d) Same layout, same budget: {budget:,} updates")
     ax.legend(loc="upper right"); ax.grid(axis="y", alpha=0.2)
-    fig.suptitle("Project 1 and Project 2: displacement agreement and solver convergence", fontsize=13)
+    fig.suptitle("Optimized beam: displacement comparison (density >= 0.5 shown)", fontsize=13)
     fig.savefig(figdir / "project1_project2_comparison.png", dpi=180)
     plt.close(fig)
 
