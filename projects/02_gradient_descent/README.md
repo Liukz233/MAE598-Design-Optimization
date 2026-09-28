@@ -6,7 +6,7 @@
 
 Kangzheng Liu · OptiForge · MAE 598/494 Design Optimization
 
-Project 1 optimized the beam's material layout. Project 2 studies the equilibrium solve within that workflow: why gradient descent slows as the mesh is refined, and how CG and Jacobi preconditioning improve iterative convergence. The report includes a direct comparison with the Project 1 displacement solution.
+Project 1 optimized the beam's material layout. Project 2 studies the equilibrium solve inside that workflow. Gradient descent slows as the mesh is refined, and its iteration count follows from the softest deformation mode. CG handles the mesh part of the ill-conditioning; Jacobi preconditioning removes the solid–void contrast of the optimized layout. The report checks the result against the Project 1 displacement solution.
 
 - **[Submission report](report/report.md)**
 - [Official assignment](https://designinformaticslab.github.io/DesignOptimization2025/project2.html)
@@ -21,4 +21,4 @@ python -m pip install -r projects/02_gradient_descent/requirements.txt
 python projects/02_gradient_descent/src/conditioning_demo.py
 ```
 
-The script reads the Project 1 finite-element implementation and saved density field, then writes the Project 2 results and figures. To save a rerun separately, add `--output /tmp/mae598-project2`.
+The script reads the Project 1 finite-element implementation and saved density field, then writes the Project 2 results and figures. The run takes about 2.5 minutes, mostly for gradient descent. To save a rerun separately, add `--output /tmp/mae598-project2`.
