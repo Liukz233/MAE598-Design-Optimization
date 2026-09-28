@@ -2,7 +2,7 @@
 
 ![Project 2 cover: optimized beam and equilibrium convergence](figures/project2_cover.png)
 
-**Solving the MBB Beam Equilibrium Problem**
+**Ill-Conditioning in the MBB Beam Equilibrium Solve**
 
 Kangzheng Liu · OptiForge · MAE 598/494 Design Optimization
 

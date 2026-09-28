@@ -1,23 +1,16 @@
-# Project 2: Solving the MBB Beam Equilibrium Problem
+# Project 2: Ill-Conditioning in the MBB Beam Equilibrium Solve
 
 **Kangzheng Liu · OptiForge · MAE 598/494 Design Optimization**
 
-## 1. Problem and Motivation
+## 1. Problem Identification and Motivation
 
-[Project 1](../../01_problem_formulation/report/report.md) optimized the material layout of a half MBB beam. Every design update needed the beam's displacement under load, which means solving the equilibrium equations $K\mathbf u=\mathbf F$. Project 1 used a sparse direct solver. With 9,880 unknowns this takes less than a tenth of a second, so the solve was never a concern.
+[Project 1](../../01_problem_formulation/report/report.md) optimized the material layout of a half MBB beam. Every design update needed the beam's displacement, which means solving the equilibrium equations $K\mathbf u=\mathbf F$. Project 1 used a sparse direct solver; with 9,880 unknowns this takes less than a tenth of a second.
 
-It becomes one at scale. Practical topology optimization is done in 3D with millions of unknowns or more [3, 4]. Factorizing $K$ then costs too much memory and time, so large codes use iterative solvers built on the conjugate gradient method (CG) [3]. The speed of an iterative solver depends on the condition number of $K$, and topology optimization makes it large in two ways: fine meshes, and the huge stiffness gap between solid and void material. Because the solve repeats at every design update, its cost sets how large a design an engineer can afford to optimize.
+At scale this changes. Practical topology optimization is done in 3D with millions of unknowns or more [3, 4]. Factorizing $K$ then costs too much memory and time, so large codes solve it iteratively with the conjugate gradient method (CG) [3]. Iterative solvers slow down when $K$ is ill-conditioned, and topology optimization makes it ill-conditioned in two ways: fine meshes, and the large stiffness gap between solid and void material. Since the solve repeats at every design update, its cost limits how large a design an engineer can optimize.
 
-This project treats the equilibrium solve as an optimization problem and asks two questions:
-
-1. Why is gradient descent (GD) so slow here, and can we predict how slow?
-2. What fixes each source of ill-conditioning, and why does the fix work?
-
-We keep the Project 1 beam, load, and supports: a downward unit force at the upper-left corner, $u_x=0$ along the left (symmetry) edge, and $u_y=0$ at the lower-right corner.
+This project writes the equilibrium solve as an energy minimization, explains why it is ill-conditioned, measures how much this slows gradient descent (GD), and tests two remedies from the course: CG and Jacobi preconditioning. The beam, load, and supports are those of Project 1: a downward unit force at the upper-left corner, $u_x=0$ along the left (symmetry) edge, and $u_y=0$ at the lower-right corner.
 
 ![Beam geometry, load, and supports](../../01_problem_formulation/figures/problem_setup.png)
-
-We first use uniform material on four meshes to isolate mesh refinement. We then solve on the optimized Project 1 layout, which adds solid–void contrast, and check the result against the Project 1 direct solution.
 
 ## 2. Formulation
 
@@ -31,13 +24,13 @@ The beam is 120 by 40 with unit thickness, in the normalized units of Project 1.
 | $E_0,E_{\min}$ | Solid and void moduli; force per area | $E_0=1$, $E_{\min}=10^{-9}$ |
 | $p,\nu$ | SIMP exponent and Poisson ratio; dimensionless | $p=3$, $\nu=0.3$ |
 
-As in Project 1, element $e$ has modulus $E_e=E_{\min}+\rho_e^p(E_0-E_{\min})$. The stiffness matrix sums one unit-modulus $8\times8$ element matrix $\mathbf k_0$, scaled by each element's modulus:
+As in Project 1, element $e$ has modulus $E_e=E_{\min}+\rho_e^p(E_0-E_{\min})$, and the stiffness matrix is assembled from one unit-modulus element matrix $\mathbf k_0$:
 
 ```math
 K=\sum_e E_e\,P_e^{\mathsf T}\mathbf k_0P_e,
 ```
 
-where $P_e$ selects the element's eight displacement components. The displacement minimizes total potential energy:
+where $P_e$ selects the element's eight displacement components. The displacement minimizes total potential energy (strain energy minus the work of the load):
 
 ```math
 \begin{aligned}
@@ -47,138 +40,109 @@ where $P_e$ selects the element's eight displacement components. The displacemen
 \end{aligned}
 ```
 
-The objective is strain energy minus the work of the applied force, with units of force times length. After removing the fixed displacements, the free displacements $\mathbf u_f$ have no bounds. Their gradient and Hessian are
+Removing the fixed displacements leaves the free displacements $\mathbf u_f$, with no bounds. Their gradient and Hessian are
 
 ```math
 \nabla\Pi=K_{ff}\mathbf u_f-\mathbf F_f,
 \qquad H=K_{ff}.
 ```
 
-Setting the gradient to zero gives the equilibrium equation $K_{ff}\mathbf u_f=\mathbf F_f$. $K_{ff}$ is symmetric positive definite for two reasons. Every $E_e$ is positive, which is why $E_{\min}$ is not zero. The supports also remove all rigid-body motion: the left edge blocks horizontal translation and rotation, and the corner roller blocks vertical translation.
+Setting the gradient to zero gives equilibrium, $K_{ff}\mathbf u_f=\mathbf F_f$. $K_{ff}$ is symmetric positive definite because every $E_e>0$ (the reason $E_{\min}$ is not zero) and the supports remove all rigid-body motion. The problem is therefore an **unconstrained, continuous, deterministic, strictly convex quadratic program** with a unique solution. It has $2(n_x+1)(n_y+1)-(n_y+2)$ variables, or 9,880 on the Project 1 mesh. Because $\Pi$ is quadratic, the Hessian is the same everywhere, so the quadratic-bowl picture of conditioning is exact.
 
-So this is an unconstrained, continuous, deterministic, strictly convex quadratic problem with a unique solution. It has $2(n_x+1)(n_y+1)-(n_y+2)$ free variables, or 9,880 on the Project 1 mesh. Because $\Pi$ is exactly quadratic, the Hessian is the same everywhere. The quadratic-bowl picture used to define conditioning is exact here, not an approximation near the minimum.
+Below, $\mathbf u_k$ is the $k$-th iterate of $\mathbf u_f$, $\mathbf u^\star$ the solution, and $\mathbf e_k=\mathbf u_k-\mathbf u^\star$ the error.
 
-From here on, $\mathbf u_k$ is the $k$-th iterate of the free displacements $\mathbf u_f$, $\mathbf u^\star$ is the exact solution, and $\mathbf e_k=\mathbf u_k-\mathbf u^\star$ is the error.
+## 3. Ill-Conditioning Mechanism
 
-## 3. Why the Problem Is Ill-Conditioned
-
-Each eigenvector $\mathbf v$ of $H$ is a deformation shape. Its eigenvalue is the stiffness of that shape, the Rayleigh quotient
+Each eigenvector $\mathbf v$ of $H$ is a deformation shape, and its eigenvalue is the stiffness of that shape:
 
 ```math
-\lambda=\frac{\mathbf v^{\mathsf T}H\mathbf v}{\mathbf v^{\mathsf T}\mathbf v},
+\lambda=\frac{\mathbf v^{\mathsf T}H\mathbf v}{\mathbf v^{\mathsf T}\mathbf v}.
 ```
 
-where the numerator is twice the strain energy of the shape. The condition number $\kappa=\lambda_{\max}/\lambda_{\min}$ compares the stiffest shape with the softest one. Mesh refinement makes this ratio large, which is **family B** of the assignment: a discretized differential operator. The optimized layout adds a second source, family A, treated in Section 5.2. The figure shows the two extreme shapes on the 24 by 8 mesh.
+The condition number $\kappa=\lambda_{\max}/\lambda_{\min}$ compares the stiffest and softest shapes. The main mechanism is **family B, a discretized differential operator**, with the mesh resolution $n_y$ as the knob. The figure shows the two extreme shapes on the 24 by 8 mesh.
 
 ![Softest and stiffest eigenvectors on the 24 by 8 mesh](../figures/extreme_modes.png)
 
-**The stiffest shape has the shortest wavelength.** Neighboring nodes move in opposite directions, so the strain is as large as the mesh allows and the energy is stored element by element. In 2D, the element matrix does not depend on element size: strains scale as $1/h$ and element area as $h^2$, and the two cancel. $\lambda_{\max}$ therefore stays almost fixed as the mesh is refined.
+- **Stiffest shape:** neighboring nodes move in opposite directions, so the energy sits inside single elements. In 2D the element matrix does not depend on element size (strains scale as $1/h$, element area as $h^2$), so $\lambda_{\max}$ stays nearly constant under refinement.
+- **Softest shape:** the whole beam deflects on its support. For a fixed smooth shape, $\mathbf v^{\mathsf T}H\mathbf v$ does not change with the mesh, but $\mathbf v^{\mathsf T}\mathbf v$ sums over all nodes and grows as $1/h^2$. So $\lambda_{\min}$ falls as $h^2$, and $\kappa$ grows as $h^{-2}\propto n_y^2$. The code checks this with the trial shape $v_x=0$, $v_y=1-x/120$, whose energy is the same on every mesh.
 
-**The softest shape is smooth and global.** The whole beam deflects on its support. This is essentially how the beam responds to the load; this one mode carries 93–96% of the compliance on all four meshes. For a fixed smooth shape, $\mathbf v^{\mathsf T}H\mathbf v$ does not change with the mesh, but $\mathbf v^{\mathsf T}\mathbf v$ sums over all nodes and grows as $1/h^2$. Its Rayleigh quotient therefore falls as $h^2$.
+**D2, growth under refinement.** We set every density to 0.5 and refine the mesh with the beam size fixed.
 
-A trial shape makes this concrete. Take $v_x=0$, $v_y=1-x/120$, which satisfies both supports. It is a uniform shear $\gamma=1/120$ over area 4,800, so $\mathbf v^{\mathsf T}H\mathbf v=G\gamma^2\cdot4800=E/7.8$ on every mesh, with $G=E/2.6$ and $E=0.125$ the modulus at density 0.5. Meanwhile $\mathbf v^{\mathsf T}\mathbf v\approx(n_x+1)(n_y+1)/3$. Hence
-
-```math
-\lambda_{\min}\leq\frac{\mathbf v^{\mathsf T}H\mathbf v}{\mathbf v^{\mathsf T}\mathbf v}\approx\frac{E/7.8}{(n_x+1)(n_y+1)/3}\propto h^2,
-```
-
-so $\kappa$ must grow at least as fast as $n_y^2$.
-
-To test this, we set every density to 0.5 and refine the mesh with the beam size fixed.
-
-| Mesh | Free variables | $\lambda_{\min}$ | $\lambda_{\max}$ | $\kappa$ | $\kappa$ after Jacobi scaling |
+| Mesh | Variables | $\lambda_{\min}$ | $\lambda_{\max}$ | $\kappa$ | $\kappa$ after Jacobi scaling |
 |---|---:|---:|---:|---:|---:|
 | 12 by 4 | 124 | $3.26\times10^{-5}$ | 0.507 | 15,543 | 12,446 |
 | 24 by 8 | 440 | $9.06\times10^{-6}$ | 0.537 | 59,263 | 51,807 |
 | 48 by 16 | 1,648 | $2.39\times10^{-6}$ | 0.546 | 228,461 | 212,348 |
 | 120 by 40 | 9,880 | $3.91\times10^{-7}$ | 0.549 | 1,404,156 | 1,363,443 |
 
-$\lambda_{\max}$ barely moves while $\lambda_{\min}$ falls as $h^2$. The fitted log–log slope of $\kappa$ against $n_y$ is 1.96, close to the predicted 2. The 1-D Poisson example in the assignment has the same rate, because both are second-order differential operators.
+$\lambda_{\max}$ barely moves while $\lambda_{\min}$ falls as $h^2$. The fitted slope of $\log\kappa$ against $\log n_y$ is 1.96, close to 2, the same rate as the 1-D Poisson example in the assignment.
 
 ![Condition number versus mesh resolution, before and after Jacobi scaling](../figures/mesh_conditioning.png)
 
-**Diagonal scaling cannot remove it.** Jacobi scaling uses
+**D2, survival under diagonal rescaling.** With
 
 ```math
-D=\mathrm{diag}(H),\qquad J=D^{-1/2}HD^{-1/2}.
+D=\mathrm{diag}(H),\qquad J=D^{-1/2}HD^{-1/2},
 ```
 
-On a uniform mesh, each diagonal entry of $H$ is the same element value times the number of elements sharing the node: 1, 2, or 4. The diagonal varies by at most a factor of 4, so $\kappa(J)\geq\kappa(H)/4$. Jacobi scaling corrects variables whose scales differ. Here all variables have nearly the same scale; the softest and stiffest shapes differ in wavelength, smooth across the whole beam versus alternating from node to node. The measurements agree: scaling lowers $\kappa$ by only 3–20%, and the slope stays near 2 (2.04). The ill-conditioning passes both parts of the intrinsic test (D2).
+each diagonal entry on a uniform mesh is one element value times the number of elements at that node (1, 2, or 4). The diagonal varies by at most a factor of 4, so $\kappa(J)\geq\kappa(H)/4$. The variables already have nearly the same scale; the two extreme shapes differ in wavelength, which a diagonal scaling cannot change. Measured: scaling lowers $\kappa$ by only 3–20%, and the slope stays near 2. The ill-conditioning is intrinsic.
 
-The full spectra of the two smaller meshes (D1) show the same picture. On the 24 by 8 mesh, only 10 of the 440 eigenvalues lie below $10^{-2}$. The softest one sits alone, 36 times below the next. Jacobi scaling shifts the spectrum up without changing its shape.
+**D1, spectrum.** The full spectra of the two smaller meshes show that only a few eigenvalues are very small; the softest mode sits well below the rest. Jacobi scaling shifts the spectrum up without changing its shape.
 
 ![Eigenvalue spectra for the two smaller meshes](../figures/eigenvalue_spectra.png)
 
-## 4. Effect on Gradient Descent
+The optimized Project 1 layout adds a second source, solid–void stiffness contrast (family A). It is treated in Section 5.2.
 
-GD with the best constant step updates the displacement as
+## 4. Effect of Ill-Conditioning
+
+GD with the best constant step is
 
 ```math
 \mathbf u_{k+1}=\mathbf u_k-\alpha(K_{ff}\mathbf u_k-\mathbf F_f),
 \qquad \alpha=\frac{2}{\lambda_{\max}+\lambda_{\min}}.
 ```
 
-Each update multiplies the error along eigenvector $i$ by $1-\alpha\lambda_i$. The stiffest mode limits the step size, and the softest mode then shrinks by only
+Each update multiplies the error along eigenvector $i$ by $1-\alpha\lambda_i$. The stiffest mode limits the step, and the softest mode then shrinks by only $q=(\kappa-1)/(\kappa+1)=1-2/(\kappa+1)$ per update. This is the optimal-step counterpart of the rate $(1-\kappa^{-1})^k$ in the [first gradient-descent lecture](https://designinformaticslab.github.io/DesignOptimization2025/gradient_descent_pt1_2025.html), with $L=\lambda_{\max}$ and $\mu=\lambda_{\min}$. Either way, the number of updates grows in proportion to $\kappa$.
 
-```math
-q=\frac{\kappa-1}{\kappa+1}=1-\frac{2}{\kappa+1}
-```
-
-per update. This is the optimal-step counterpart of the rate $(1-\kappa^{-1})^k$ in the [first gradient-descent lecture](https://designinformaticslab.github.io/DesignOptimization2025/gradient_descent_pt1_2025.html), with $L=\lambda_{\max}$ and $\mu=\lambda_{\min}$. Either way, the number of updates grows in proportion to $\kappa$.
-
-All methods start from zero displacement. They stop when the unbalanced force falls below one millionth of the applied force:
+All methods start from zero and stop when the relative residual, which is also the normalized gradient norm, reaches
 
 ```math
 r_k=\frac{\lVert K_{ff}\mathbf u_k-\mathbf F_f\rVert_2}{\lVert\mathbf F_f\rVert_2}\leq10^{-6}.
 ```
 
-This relative residual is also the normalized gradient norm.
+**D3, iterations to tolerance.** Late in the run, the residual lies almost entirely along the softest mode $\mathbf v_1$, so $r_k\approx c_1q^k$ with $c_1=|\mathbf v_1^{\mathsf T}\mathbf F_f|/\lVert\mathbf F_f\rVert_2$. This predicts $k\approx(\kappa/2)\ln(c_1/10^{-6})$ updates.
 
-**The GD count can be predicted.** Eventually the residual lies almost entirely along the softest mode $\mathbf v_1$. Its size is set by the load's share on that mode, $c_1=|\mathbf v_1^{\mathsf T}\mathbf F_f|/\lVert\mathbf F_f\rVert_2$. From then on $r_k\approx c_1q^k$, so GD needs
+| Mesh | $\kappa$ | Predicted GD updates | Measured GD updates |
+|---|---:|---:|---:|
+| 12 by 4 | 15,543 | 93,647 | 93,648 |
+| 24 by 8 | 59,263 | 338,559 | 338,559 |
+| 48 by 16 | 228,461 | 1,229,961 | 1,229,961 |
+| 120 by 40 | 1,404,156 | 6,929,438 | Not run |
 
-```math
-k=\frac{\ln(c_1/10^{-6})}{\ln(1/q)}\approx\frac{\kappa}{2}\ln\frac{c_1}{10^{-6}}
-```
-
-updates.
-
-| Mesh | $\kappa$ | $c_1$ | Predicted GD updates | Measured GD updates |
-|---|---:|---:|---:|---:|
-| 12 by 4 | 15,543 | 0.171 | 93,647 | 93,648 |
-| 24 by 8 | 59,263 | 0.092 | 338,559 | 338,559 |
-| 48 by 16 | 228,461 | 0.047 | 1,229,961 | 1,229,961 |
-| 120 by 40 | 1,404,156 | 0.019 | 6,929,438 | Not run |
-
-The prediction matches to within one update. Each mesh doubling costs GD about 3.6 times more updates. On the Project 1 mesh it would need about 6.9 million.
+Each mesh doubling costs GD about 3.6 times more updates, close to the growth of $\kappa$. On the Project 1 mesh GD would need about 6.9 million updates.
 
 ![GD and CG convergence on the 24 by 8 mesh](../figures/convergence_uniform_24x8.png)
 
-The figure gives the convergence curves (D3). Panel (a) shows the two phases on the 24 by 8 mesh. The residual first drops to about $c_1=0.09$ as the other components die out. It then follows $c_1q^k$ (dotted line) for over 300,000 updates.
+**D3, convergence curves.** Panel (a) shows the residual on the 24 by 8 mesh. It drops quickly to about 0.09, then decays along $c_1q^k$ (dotted line) for over 300,000 updates. Panel (b) adds the relative objective gap $g_k=\big(\Pi(\mathbf u_k)-\Pi(\mathbf u^\star)\big)/\big(\Pi(\mathbf 0)-\Pi(\mathbf u^\star)\big)$. After 500 updates the residual is 0.098 but $g_k$ is still 0.92: a small residual along a soft mode hides a large displacement error.
 
-The residual is misleading in the slow phase. Panel (b) also plots the relative energy gap
+Jacobi-scaled GD saves only 1.24, 1.14, and 1.07 times the GD updates on the three smaller meshes, matching the small drops in $\kappa$ from Section 3.
 
-```math
-g_k=\frac{\Pi(\mathbf u_k)-\Pi(\mathbf u^\star)}{\Pi(\mathbf 0)-\Pi(\mathbf u^\star)}.
-```
+## 5. Proposed Solution and Demonstration
 
-After 500 updates, the residual is 0.098 but $g_k$ is still 0.92. The missing part is the softest mode, where the error equals the residual divided by $\lambda_1$. A small residual along a soft mode can hide a large displacement error.
-
-Jacobi-scaled GD helps little. On the three smaller meshes it saves 1.24, 1.14, and 1.07 times the GD updates, matching the drops in $\kappa$ in Section 3, as expected when the update count scales with $\kappa$.
-
-## 5. Improving the Solver
-
-The [second gradient-descent lecture](https://designinformaticslab.github.io/DesignOptimization2025/gradient_descent_pt2_2025.html) writes preconditioned steepest descent as $\mathbf d_k=-M^{-1}\nabla\Pi(\mathbf u_k)$. $M=I$ gives GD. $M=H$ gives Newton's method, which solves a quadratic in one step; here that step is exactly the Project 1 direct solve, at the cost of factorizing $K_{ff}$. The two fixes below sit between these extremes: CG changes how search directions are combined, and Jacobi preconditioning uses $M=D=\mathrm{diag}(H)$.
+The [second gradient-descent lecture](https://designinformaticslab.github.io/DesignOptimization2025/gradient_descent_pt2_2025.html) writes preconditioned steepest descent as $\mathbf d_k=-M^{-1}\nabla\Pi(\mathbf u_k)$. $M=I$ is GD. $M=H$ is Newton's method, which solves a quadratic in one step; here that step is exactly the Project 1 direct solve, at the cost of factorizing $K_{ff}$. We use two cheaper remedies between these extremes, one for each mechanism.
 
 ### 5.1 Mesh refinement: conjugate gradient
 
-Diagonal scaling cannot fix the mesh part, so the fix has to change how search directions are combined. CG, also covered in that lecture, makes each new direction conjugate, with respect to $K_{ff}$, to all earlier ones. After $k$ updates it has the lowest-energy displacement among all combinations of the first $k$ residuals, so it never undoes earlier progress. Its standard error bound depends on $\sqrt\kappa$ instead of $\kappa$ [6]:
+Diagonal scaling cannot help with the mesh part, so the remedy has to change how search directions are combined. CG, also covered in that lecture, makes each new direction conjugate with respect to $K_{ff}$ to all earlier ones, so it never undoes earlier progress. Its standard error bound depends on $\sqrt\kappa$ rather than $\kappa$ [6]:
 
 ```math
 \lVert\mathbf e_k\rVert_{K}\leq2\left(\frac{\sqrt\kappa-1}{\sqrt\kappa+1}\right)^k\lVert\mathbf e_0\rVert_{K},
 \qquad \lVert\mathbf e\rVert_K=\sqrt{\mathbf e^{\mathsf T}K_{ff}\mathbf e}.
 ```
 
-Since $\kappa$ grows as $n_y^2$, this bound suggests CG updates growing roughly as $n_y$. It bounds the energy error, not the residual, so it gives a trend rather than a count. The measured counts follow that trend:
+Since $\kappa\propto n_y^2$, this bound suggests CG updates growing roughly as $n_y$. It bounds the energy error rather than our residual test, so it indicates a trend, not an exact count.
+
+**D4, before and after.**
 
 | Mesh | GD updates | CG updates | CG updates / $\sqrt\kappa$ |
 |---|---:|---:|---:|
@@ -187,30 +151,30 @@ Since $\kappa$ grows as $n_y^2$, this bound suggests CG updates growing roughly 
 | 48 by 16 | 1,229,961 | 293 | 0.61 |
 | 120 by 40 | About 6.9 million (predicted) | 710 | 0.60 |
 
-CG updates double when the mesh doubles, while GD updates grow 3.6 times. On the Project 1 mesh, CG needs 710 updates in place of about 6.9 million. This table and the convergence figure in Section 4 give the before-and-after comparison (D4).
+CG updates double when the mesh doubles, while GD updates grow 3.6 times: the effective rate changes from $\kappa$ to $\sqrt\kappa$. The convergence figure in Section 4 shows both methods on the 24 by 8 mesh. CG's residual is not monotone because CG minimizes the energy error, and its objective gap falls at every update.
 
-CG's residual is not monotone (panel b above). CG minimizes the energy error, not the residual, and its energy gap falls at every update.
-
-CG still slows down as the mesh is refined. A count that does not depend on the mesh needs a preconditioner that treats smooth modes on coarser grids, such as multigrid. Large-scale topology optimization codes use this combination [3].
+CG still slows down as the mesh is refined. Mesh-independent counts need a preconditioner that handles smooth modes on coarser grids, such as multigrid, which is the assignment's advanced remedy and what large topology optimization codes use [3].
 
 ### 5.2 Material contrast: Jacobi preconditioning
 
-The optimized Project 1 layout adds a second, different source of ill-conditioning. Near-void elements have modulus $10^{-9}$. Nodes attached only to void elements have stiffness proportional to $E_{\min}$, so the softest modes are deformations of the void material itself: $\lambda_{\min}\approx3.5\times10^{-3}E_{\min}$ for $E_{\min}\leq10^{-6}$, and $\kappa$ reaches $1.19\times10^{12}$. This is family A (multiscale stiffness).
+On the optimized Project 1 layout, nodes attached only to near-void elements have stiffness proportional to $E_{\min}$. The softest modes become deformations of the void material, $\lambda_{\min}\approx3.5\times10^{-3}E_{\min}$ for $E_{\min}\leq10^{-6}$, and $\kappa$ reaches $1.19\times10^{12}$. This is family A (multiscale stiffness).
 
-Unlike the mesh part, this source shows up in the diagonal: a void node's diagonal entry is also proportional to $E_{\min}$. Jacobi scaling rescales each variable by the square root of its diagonal stiffness, which brings the void modes back to the scale of the solid. Panel (a) shows the result: $\kappa(J)$ is $1.13\times10^6$ for every $E_{\min}$, close to the uniform 120 by 40 mesh ($1.36\times10^6$, dotted line). For this layout and range of $E_{\min}$, Jacobi scaling removes the contrast part and leaves the mesh part, so by the assignment's test only the mesh part is intrinsic. Jacobi-preconditioned CG (Jacobi-PCG, CG with $M=D$) therefore combines the two fixes: Jacobi scaling for the contrast and CG for the mesh.
+This source shows up in the diagonal: a void node's diagonal entry is also proportional to $E_{\min}$. Jacobi preconditioning, $M=D$, is equivalent to CG on the symmetrically scaled matrix $J$ of Section 3. It brings the void modes back to the scale of the solid. Panel (a) below shows that $\kappa(J)$ is $1.13\times10^6$ for every $E_{\min}$, close to the uniform 120 by 40 mesh ($1.36\times10^6$, dotted line). For this layout, Jacobi scaling removes the contrast part and leaves the mesh part. Jacobi-preconditioned CG (Jacobi-PCG) therefore combines the two remedies.
 
 ![Condition numbers and convergence on the optimized layout](../figures/optimized_jacobi_fix.png)
+
+**D4, before and after.**
 
 | 120 by 40 layout | $\kappa$ | $\kappa$ after Jacobi | CG updates | Jacobi-PCG updates |
 |---|---:|---:|---:|---:|
 | Uniform (mesh only) | $1.40\times10^6$ | $1.36\times10^6$ | 710 | 686 |
 | Project 1, $E_{\min}=10^{-9}$ (mesh and contrast) | $1.19\times10^{12}$ | $1.13\times10^6$ | Not converged after 5,000 ($r=7.2\times10^{-3}$) | 1,201 |
 
-The figure and table give the before-and-after evidence for this fix (D4). The same preconditioner saves 3% on the uniform mesh and turns a failed solve into a 1,201-update solve on the optimized layout. The count also barely depends on the contrast: 1,229, 1,216, and 1,201 updates for $E_{\min}=10^{-3}$, $10^{-6}$, and $10^{-9}$. It is still higher than on the uniform mesh although $\kappa(J)$ is slightly lower, because CG's count depends on the whole spread of eigenvalues, not on $\kappa$ alone.
+The same preconditioner saves 3% on the uniform mesh and turns a failed solve into a 1,201-update solve on the optimized layout. Its count barely depends on the contrast: 1,229, 1,216, and 1,201 updates for $E_{\min}=10^{-3}$, $10^{-6}$, and $10^{-9}$.
 
 ### 5.3 Check against Project 1
 
-The Project 1 direct solution is the reference. CG gets the same 1,201 updates that Jacobi-PCG needed.
+The Project 1 direct solve is the reference; CG gets the same 1,201 updates as Jacobi-PCG.
 
 ![Displacement and solver error on the optimized beam](../figures/project1_project2_comparison.png)
 
@@ -220,18 +184,14 @@ The Project 1 direct solution is the reference. CG gets the same 1,201 updates t
 | CG | 1,201 | $9.51\times10^{-2}$ | 206.318024 | $2.9\times10^{-2}$ |
 | Jacobi-PCG | 1,201 | $9.27\times10^{-7}$ | 210.040571 | $4.9\times10^{-10}$ |
 
-The last column uses nodes that touch an element with density at least 0.5, and the maps show those elements; the threshold is for plotting and statistics only. Near-void material has stiffness close to $10^{-9}$, so a tiny residual still allows a large displacement error there. Even converged Jacobi-PCG is off by $5\times10^{-5}$ in those regions, against $5\times10^{-10}$ on the structure.
+Jacobi-PCG reproduces the Project 1 compliance to 11 significant digits, while CG with the same budget underestimates it by 1.8%. The error column uses nodes of elements with density at least 0.5, and the maps show those elements; near-void material is so soft that its displacement is poorly determined even by a converged solve. At this 2D size, the direct solve (Newton's one step) is still several times faster than Jacobi-PCG; iterative solvers pay off on the larger 3D problems in Section 1.
 
-Jacobi-PCG reproduces the Project 1 compliance to 11 significant digits. CG with the same budget underestimates it by 1.8%, and this direction is expected. In exact arithmetic, CG started from zero satisfies $\Pi(\mathbf u_k)=-\tfrac12\mathbf F_f^{\mathsf T}\mathbf u_k$. As CG lowers $\Pi$, the compliance estimate $\mathbf F_f^{\mathsf T}\mathbf u_k$ rises toward the true value from below. A truncated solve therefore makes the design look stiffer than it is, and its 3% displacement error would also distort the Project 1 sensitivities.
+## 6. Assumptions and Simplifications
 
-For this 2D problem, the direct solve (Newton's one step) is still several times faster: 0.07 s against 0.29 s for Jacobi-PCG in the saved run. The case for iterative solvers rests on larger 3D problems with stronger preconditioners such as multigrid [3, 4].
-
-## 6. Assumptions and Limitations
-
-- The model uses small-deformation, isotropic linear elasticity, plane stress, unit thickness, and one static load case.
-- Each solve uses a fixed density field and starts from zero. Inside an optimization loop, $K$ changes slightly at each design update. Starting from the previous displacement would cut the iteration count, but truncated CG would then no longer be guaranteed to underestimate compliance. We do not model this.
+- Small-deformation, isotropic linear elasticity, plane stress, unit thickness, and one static load case.
+- The density field is fixed during each solve, and every solve starts from zero. Inside an optimization loop, reusing the previous displacement would reduce the iteration count; this is not modeled.
 - GD uses the best constant step, computed from the exact extreme eigenvalues. This favors GD; in practice those values are unknown.
-- Performance is measured in updates. Each GD, CG, or Jacobi-PCG update costs about one sparse matrix–vector product.
+- Performance is measured in updates; each GD, CG, or Jacobi-PCG update costs about one sparse matrix–vector product.
 - The load magnitude does not affect $\kappa$ or the relative residuals, because $K$ does not depend on $\mathbf F$.
 
 ## Reproduction
@@ -243,9 +203,9 @@ python -m pip install -r projects/02_gradient_descent/requirements.txt
 python projects/02_gradient_descent/src/conditioning_demo.py
 ```
 
-The run takes about 2.5 minutes, mostly for GD on the three smaller meshes. The [code](../src/conditioning_demo.py) reads the Project 1 FE model and saved density. The [results](../results/) contain condition numbers, the GD prediction, solver histories, the Project 1 comparison, and environment metadata.
+The run takes about 2.5 minutes, mostly for GD. The [code](../src/conditioning_demo.py) reads the Project 1 FE model and saved density and uses a fixed random seed. The [results](../results/) contain condition numbers, solver histories, the Project 1 comparison, and environment metadata.
 
-For a hand check, fixing all but the two upper vertical displacements of one solid square element gives
+**Hand check.** Fixing all but the two upper vertical displacements of one solid square element gives
 
 ```math
 H_{\mathrm{check}}=\frac1{91}
@@ -255,9 +215,7 @@ H_{\mathrm{check}}=\frac1{91}
 \end{bmatrix}.
 ```
 
-Its eigenvalues are $40/91$ and $50/91$, so $\kappa=1.25$ and $q=0.25/2.25=1/9$. The load $(1,0)^{\mathsf T}$ splits equally between the two eigenvectors, so GD gives exactly $r_k=9^{-k}$. Since $9^{-6}=1.9\times10^{-6}$ and $9^{-7}=2.1\times10^{-7}$, GD needs seven updates. CG needs two, since it finishes in at most as many updates as there are unknowns.
-
-[verification.json](../results/verification.json) records this check and several others: a finite-difference test of the energy gradient, sparse against dense eigenvalues, the trial-shape energy $E/7.8$ and the bound $\kappa(J)\geq\kappa(H)/4$ on every uniform mesh, and the GD prediction within 0.1%.
+Its eigenvalues are $40/91$ and $50/91$, so $\kappa=1.25$ and $q=1/9$. The load $(1,0)^{\mathsf T}$ splits equally between the two eigenvectors, so GD gives $r_k=9^{-k}$ and needs seven updates to reach $10^{-6}$. CG needs two, since it finishes in at most as many updates as there are unknowns. The code reproduces both counts; [verification.json](../results/verification.json) records this and the other checks.
 
 ## References
 
