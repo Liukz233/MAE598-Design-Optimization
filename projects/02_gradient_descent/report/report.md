@@ -167,7 +167,7 @@ Jacobi-scaled GD helps little. It needs 75,404, 296,896, and 1,145,230 updates o
 
 ### 5.1 Mesh refinement: conjugate gradient
 
-Diagonal scaling cannot fix the mesh part, so the fix has to change how search directions are chosen. CG, covered in the [second gradient-descent lecture](https://designinformaticslab.github.io/DesignOptimization2025/gradient_descent_pt2_2025.html), makes each new direction conjugate, with respect to $K_{ff}$, to all earlier ones. After $k$ updates it has the lowest-energy displacement among all combinations of the first $k$ residuals, so it never undoes earlier progress. In eigenvalue terms, GD applies the fixed factor $(1-\alpha\lambda)^k$; CG picks the best degree-$k$ polynomial for the whole spectrum. Its standard error bound depends on $\sqrt\kappa$ instead of $\kappa$ [6]:
+Diagonal scaling cannot fix the mesh part, so the fix has to change how search directions are chosen. CG, covered in the [second gradient-descent lecture](https://designinformaticslab.github.io/DesignOptimization2025/gradient_descent_pt2_2025.html), makes each new direction conjugate, with respect to $K_{ff}$, to all earlier ones. After $k$ updates it has the lowest-energy displacement among all combinations of the first $k$ residuals, so it never undoes earlier progress. In eigenvalue terms, GD applies the fixed factor $(1-\alpha\lambda)^k$; CG picks the best polynomial of degree $k$ for the whole spectrum. Its standard error bound depends on $\sqrt\kappa$ instead of $\kappa$ [6]:
 
 ```math
 \lVert\mathbf e_k\rVert_{K}\leq2\left(\frac{\sqrt\kappa-1}{\sqrt\kappa+1}\right)^k\lVert\mathbf e_0\rVert_{K}.
