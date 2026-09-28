@@ -124,7 +124,7 @@ Each update multiplies the error along eigenvector $i$ by $1-\alpha\lambda_i$. T
 q=\frac{\kappa-1}{\kappa+1}=1-\frac{2}{\kappa+1}
 ```
 
-per update, as in the [gradient-descent lectures](https://designinformaticslab.github.io/DesignOptimization2025/gradient_descent_pt1_2025.html). The stiffest mode is multiplied by $-q$, so it decays just as slowly, but the load barely excites it: on the 24 by 8 mesh its share of the load is $4\times10^{-4}$, against 0.092 for the softest mode.
+per update. This is the optimal-step counterpart of the rate $(1-\kappa^{-1})^k$ in the [first gradient-descent lecture](https://designinformaticslab.github.io/DesignOptimization2025/gradient_descent_pt1_2025.html), with $L=\lambda_{\max}$ and $\mu=\lambda_{\min}$. Either way, the number of updates grows in proportion to $\kappa$.
 
 All methods start from zero displacement. They stop when the unbalanced force falls below one millionth of the applied force:
 
@@ -134,7 +134,7 @@ r_k=\frac{\lVert K_{ff}\mathbf u_k-\mathbf F_f\rVert_2}{\lVert\mathbf F_f\rVert_
 
 This relative residual is also the normalized gradient norm.
 
-**The GD count can be predicted.** Once the other components have died out (after about a thousand updates on the 24 by 8 mesh), the residual lies almost entirely along the softest mode $\mathbf v_1$. Its size there is set by the load's share on that mode, $c_1=|\mathbf v_1^{\mathsf T}\mathbf F_f|/\lVert\mathbf F_f\rVert_2$. From then on $r_k\approx c_1q^k$, so GD needs
+**The GD count can be predicted.** Eventually the residual lies almost entirely along the softest mode $\mathbf v_1$. Its size is set by the load's share on that mode, $c_1=|\mathbf v_1^{\mathsf T}\mathbf F_f|/\lVert\mathbf F_f\rVert_2$. From then on $r_k\approx c_1q^k$, so GD needs
 
 ```math
 k=\frac{\ln(c_1/10^{-6})}{\ln(1/q)}\approx\frac{\kappa}{2}\ln\frac{c_1}{10^{-6}}
@@ -167,16 +167,18 @@ Jacobi-scaled GD helps little. On the three smaller meshes it saves 1.24, 1.14, 
 
 ## 5. Improving the Solver
 
+The [second gradient-descent lecture](https://designinformaticslab.github.io/DesignOptimization2025/gradient_descent_pt2_2025.html) writes preconditioned steepest descent as $\mathbf d_k=-M^{-1}\nabla\Pi(\mathbf u_k)$. $M=I$ gives GD. $M=H$ gives Newton's method, which solves a quadratic in one step; here that step is exactly the Project 1 direct solve, at the cost of factorizing $K_{ff}$. The two fixes below sit between these extremes: CG changes how search directions are combined, and Jacobi preconditioning uses $M=D=\mathrm{diag}(H)$.
+
 ### 5.1 Mesh refinement: conjugate gradient
 
-Diagonal scaling cannot fix the mesh part, so the fix has to change how search directions are chosen. CG, covered in the [second gradient-descent lecture](https://designinformaticslab.github.io/DesignOptimization2025/gradient_descent_pt2_2025.html), makes each new direction conjugate, with respect to $K_{ff}$, to all earlier ones. After $k$ updates it has the lowest-energy displacement among all combinations of the first $k$ residuals, so it never undoes earlier progress. In eigenvalue terms, GD applies the fixed factor $(1-\alpha\lambda)^k$; CG picks the best polynomial of degree $k$ for the whole spectrum. Its standard error bound depends on $\sqrt\kappa$ instead of $\kappa$ [6]:
+Diagonal scaling cannot fix the mesh part, so the fix has to change how search directions are combined. CG, also covered in that lecture, makes each new direction conjugate, with respect to $K_{ff}$, to all earlier ones. After $k$ updates it has the lowest-energy displacement among all combinations of the first $k$ residuals, so it never undoes earlier progress. Its standard error bound depends on $\sqrt\kappa$ instead of $\kappa$ [6]:
 
 ```math
 \lVert\mathbf e_k\rVert_{K}\leq2\left(\frac{\sqrt\kappa-1}{\sqrt\kappa+1}\right)^k\lVert\mathbf e_0\rVert_{K},
 \qquad \lVert\mathbf e\rVert_K=\sqrt{\mathbf e^{\mathsf T}K_{ff}\mathbf e}.
 ```
 
-Since $\kappa$ grows as $n_y^2$, this bound suggests CG updates growing roughly as $n_y$. The bound is on the energy error while our stopping test uses the residual, so it indicates a trend rather than an exact count. The measured counts follow that trend:
+Since $\kappa$ grows as $n_y^2$, this bound suggests CG updates growing roughly as $n_y$. It bounds the energy error, not the residual, so it gives a trend rather than a count. The measured counts follow that trend:
 
 | Mesh | GD updates | CG updates | CG updates / $\sqrt\kappa$ |
 |---|---:|---:|---:|
@@ -195,7 +197,7 @@ CG still slows down as the mesh is refined. A count that does not depend on the 
 
 The optimized Project 1 layout adds a second, different source of ill-conditioning. Near-void elements have modulus $10^{-9}$. Nodes attached only to void elements have stiffness proportional to $E_{\min}$, so the softest modes are deformations of the void material itself: $\lambda_{\min}\approx3.5\times10^{-3}E_{\min}$ for $E_{\min}\leq10^{-6}$, and $\kappa$ reaches $1.19\times10^{12}$. This is family A (multiscale stiffness).
 
-Unlike the mesh part, this source shows up in the diagonal: a void node's diagonal entry is also proportional to $E_{\min}$. The symmetric scaling of Section 3 rescales each variable by the square root of its diagonal stiffness, which brings the void modes back to the scale of the solid. In Jacobi-PCG, the same scaling enters as $D^{-1}$ applied to the residual. Panel (a) shows the result: $\kappa(J)$ is $1.13\times10^6$ for every $E_{\min}$, close to the uniform 120 by 40 mesh ($1.36\times10^6$, dotted line). For this layout and range of $E_{\min}$, Jacobi scaling removes the contrast part and leaves the mesh part. By the assignment's test, the contrast part is not intrinsic here and the mesh part is. Jacobi-preconditioned CG (Jacobi-PCG) therefore combines the two fixes: Jacobi scaling for the contrast and CG for the mesh.
+Unlike the mesh part, this source shows up in the diagonal: a void node's diagonal entry is also proportional to $E_{\min}$. Jacobi scaling rescales each variable by the square root of its diagonal stiffness, which brings the void modes back to the scale of the solid. Panel (a) shows the result: $\kappa(J)$ is $1.13\times10^6$ for every $E_{\min}$, close to the uniform 120 by 40 mesh ($1.36\times10^6$, dotted line). For this layout and range of $E_{\min}$, Jacobi scaling removes the contrast part and leaves the mesh part, so by the assignment's test only the mesh part is intrinsic. Jacobi-preconditioned CG (Jacobi-PCG, CG with $M=D$) therefore combines the two fixes: Jacobi scaling for the contrast and CG for the mesh.
 
 ![Condition numbers and convergence on the optimized layout](../figures/optimized_jacobi_fix.png)
 
@@ -204,9 +206,7 @@ Unlike the mesh part, this source shows up in the diagonal: a void node's diagon
 | Uniform (mesh only) | $1.40\times10^6$ | $1.36\times10^6$ | 710 | 686 |
 | Project 1, $E_{\min}=10^{-9}$ (mesh and contrast) | $1.19\times10^{12}$ | $1.13\times10^6$ | Not converged after 5,000 ($r=7.2\times10^{-3}$) | 1,201 |
 
-The figure and table give the before-and-after evidence for this fix (D4). The same preconditioner saves 3% on the uniform mesh and turns a failed solve into a 1,201-update solve on the optimized layout. It helps where the ill-conditioning comes from mismatched variable scales. The count also barely depends on the contrast: 1,229, 1,216, and 1,201 updates for $E_{\min}=10^{-3}$, $10^{-6}$, and $10^{-9}$.
-
-Jacobi-PCG still needs more updates on the optimized layout than on the uniform mesh (1,201 against 686), although $\kappa(J)$ is slightly lower. The $\sqrt\kappa$ bound is only an upper bound, and CG's actual count depends on the whole spread of eigenvalues. One visible difference is at the low end: after Jacobi scaling, the optimized layout has 17 eigenvalues below $10^{-3}$, against 6 for the uniform mesh.
+The figure and table give the before-and-after evidence for this fix (D4). The same preconditioner saves 3% on the uniform mesh and turns a failed solve into a 1,201-update solve on the optimized layout. The count also barely depends on the contrast: 1,229, 1,216, and 1,201 updates for $E_{\min}=10^{-3}$, $10^{-6}$, and $10^{-9}$. It is still higher than on the uniform mesh although $\kappa(J)$ is slightly lower, because CG's count depends on the whole spread of eigenvalues, not on $\kappa$ alone.
 
 ### 5.3 Check against Project 1
 
@@ -220,16 +220,16 @@ The Project 1 direct solution is the reference. CG gets the same 1,201 updates t
 | CG | 1,201 | $9.51\times10^{-2}$ | 206.318024 | $2.9\times10^{-2}$ |
 | Jacobi-PCG | 1,201 | $9.27\times10^{-7}$ | 210.040571 | $4.9\times10^{-10}$ |
 
-The last column is the relative displacement error over nodes that touch an element with density at least 0.5; this threshold only separates the members from the low-density regions for plotting and error statistics. The maps show the same elements. Low-density regions carry little load, and near-void material has stiffness close to $10^{-9}$, so a tiny residual still allows a large displacement error there. Even converged Jacobi-PCG differs from the direct solve by $5\times10^{-5}$ off the structure, against $5\times10^{-10}$ on it.
+The last column uses nodes that touch an element with density at least 0.5, and the maps show those elements; the threshold is for plotting and statistics only. Near-void material has stiffness close to $10^{-9}$, so a tiny residual still allows a large displacement error there. Even converged Jacobi-PCG is off by $5\times10^{-5}$ in those regions, against $5\times10^{-10}$ on the structure.
 
-Jacobi-PCG reproduces the Project 1 compliance to 11 significant digits. CG with the same budget underestimates it by 1.8%. For CG started from zero on a symmetric positive definite system, this error has a fixed sign in exact arithmetic. CG then minimizes $\Pi$ over a subspace that contains $\mathbf u_k$, which gives $\mathbf F_f^{\mathsf T}\mathbf u_k=\mathbf u_k^{\mathsf T}K_{ff}\mathbf u_k$ and $\Pi(\mathbf u_k)=-\tfrac12\mathbf F_f^{\mathsf T}\mathbf u_k$. As $\Pi(\mathbf u_k)$ falls, the compliance estimate rises toward the true value from below; in our run it never decreased. A truncated CG solve therefore makes a design look stiffer than it is. With a nonzero starting guess, such as the previous design's displacement, this sign is no longer guaranteed. The 3% displacement error on the structure would also distort the Project 1 sensitivities, which are quadratic in the element displacements.
+Jacobi-PCG reproduces the Project 1 compliance to 11 significant digits. CG with the same budget underestimates it by 1.8%, and this direction is expected. In exact arithmetic, CG started from zero satisfies $\Pi(\mathbf u_k)=-\tfrac12\mathbf F_f^{\mathsf T}\mathbf u_k$. As CG lowers $\Pi$, the compliance estimate $\mathbf F_f^{\mathsf T}\mathbf u_k$ rises toward the true value from below. A truncated solve therefore makes the design look stiffer than it is, and its 3% displacement error would also distort the Project 1 sensitivities.
 
-For this 2D problem with a Jacobi preconditioner, the direct solve is several times faster on our machine (0.07 s against 0.29 s for Jacobi-PCG in the saved run). The case for iterative solvers rests on larger 3D problems and stronger preconditioners such as multigrid [3, 4], which this project does not test.
+For this 2D problem, the direct solve (Newton's one step) is still several times faster: 0.07 s against 0.29 s for Jacobi-PCG in the saved run. The case for iterative solvers rests on larger 3D problems with stronger preconditioners such as multigrid [3, 4].
 
 ## 6. Assumptions and Limitations
 
 - The model uses small-deformation, isotropic linear elasticity, plane stress, unit thickness, and one static load case.
-- Each solve uses a fixed density field and starts from zero. Inside an optimization loop, $K$ changes slightly at each design update. Starting from the previous displacement would cut the iteration count, and the preconditioner would need rebuilding each time. We do not model this.
+- Each solve uses a fixed density field and starts from zero. Inside an optimization loop, $K$ changes slightly at each design update. Starting from the previous displacement would cut the iteration count, but truncated CG would then no longer be guaranteed to underestimate compliance. We do not model this.
 - GD uses the best constant step, computed from the exact extreme eigenvalues. This favors GD; in practice those values are unknown.
 - Performance is measured in updates. Each GD, CG, or Jacobi-PCG update costs about one sparse matrix–vector product.
 - The load magnitude does not affect $\kappa$ or the relative residuals, because $K$ does not depend on $\mathbf F$.
