@@ -23,22 +23,54 @@
   "uniform_12x4": {
     "diagonal_ratio": 4.0,
     "affine_trial_energy": 0.01602564113782086,
-    "jacobi_lower_bound": 3885.8535928380043
+    "affine_trial_rayleigh_quotient": 0.0007100591765680628,
+    "jacobi_lower_bound": 3885.8535928380043,
+    "gd_iterations_measured": 93648,
+    "gd_iterations_predicted": 93647
   },
   "uniform_24x8": {
     "diagonal_ratio": 4.0,
     "affine_trial_energy": 0.01602564113782204,
-    "jacobi_lower_bound": 14815.728258792018
+    "affine_trial_rayleigh_quotient": 0.00020931449649400213,
+    "jacobi_lower_bound": 14815.728258792018,
+    "gd_iterations_measured": 338559,
+    "gd_iterations_predicted": 338559
   },
   "uniform_48x16": {
     "diagonal_ratio": 4.0,
     "affine_trial_energy": 0.016025641137827923,
-    "jacobi_lower_bound": 57115.367064683436
+    "affine_trial_rayleigh_quotient": 5.712039018940908e-05,
+    "jacobi_lower_bound": 57115.367064683436,
+    "gd_iterations_measured": 1229961,
+    "gd_iterations_predicted": 1229961
   },
   "uniform_120x40": {
     "diagonal_ratio": 4.0,
     "affine_trial_energy": 0.016025641137864657,
+    "affine_trial_rayleigh_quotient": 9.650762770575264e-06,
     "jacobi_lower_bound": 351039.0807011441
   },
-  "project1_compliance_reproduced": 210.04057115900133
+  "project1_compliance_reproduced": 210.04057115900133,
+  "project1_comparison": {
+    "cg_compliance_never_decreased": true,
+    "cg_largest_compliance_decrease": 0.0,
+    "cg_final_compliance": 206.31802404800524
+  },
+  "extreme_modes": {
+    "mesh": "24x8",
+    "lambda_1": 9.064675906791135e-06,
+    "lambda_2": 0.0003307643240539914,
+    "lambda_max": 0.5371990999574808,
+    "softest_mode_compliance_share": 0.9494129769605678
+  },
+  "mesh_scaling": {
+    "kappa_loglog_slope_vs_ny": 1.9559029836166377,
+    "jacobi_kappa_loglog_slope_vs_ny": 2.038817859168921,
+    "cg_iterations_over_sqrt_kappa": {
+      "uniform_12x4": 0.6095935733222242,
+      "uniform_24x8": 0.6161688817794121,
+      "uniform_48x16": 0.6130009373064329,
+      "uniform_120x40": 0.5991707703079013
+    }
+  }
 }
