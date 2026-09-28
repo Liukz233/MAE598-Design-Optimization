@@ -383,7 +383,16 @@ def project_comparison(output, rho, A, b, pcg_solution, pcg_metrics):
     expected = json.loads((P1 / "results" / "summary.json").read_text())["final_compliance"]
     np.testing.assert_allclose(p1_compliance, expected, rtol=1e-8)
     budget = pcg_metrics["iterations"]
-    cg_equal, info = cg(A, b, rtol=1e-6, atol=0.0, maxiter=budget)
+    compliance_history = []
+    cg_equal, info = cg(A, b, rtol=1e-6, atol=0.0, maxiter=budget,
+                        callback=lambda x: compliance_history.append(float(b @ x)))
+    # From a zero start, exact-arithmetic CG approaches the compliance from below.
+    steps = np.diff(compliance_history)
+    compliance_check = {
+        "cg_compliance_never_decreased": bool(np.all(steps >= 0.0)),
+        "cg_largest_compliance_decrease": float(max(0.0, -steps.min())),
+        "cg_final_compliance": compliance_history[-1],
+    }
     assert info == budget, "Update comparison if CG reaches tolerance within the shared budget"
     # "Structure" DOFs touch at least one element with density >= 0.5.
     on_structure = np.zeros(force.size, dtype=bool)
@@ -479,6 +488,7 @@ def project_comparison(output, rho, A, b, pcg_solution, pcg_metrics):
     fig.text(0.045, 0.09, "OptiForge  |  Kangzheng Liu  |  MAE 598/494 Design Optimization", fontsize=10, color="#536471")
     fig.savefig(figdir / "project2_cover.png", dpi=180, facecolor=fig.get_facecolor())
     plt.close(fig)
+    return compliance_check
 
 
 def main():
@@ -577,7 +587,8 @@ def main():
                 verification[name]["gd_iterations_measured"] = metrics["iterations"]
                 verification[name]["gd_iterations_predicted"] = predicted
             if density is not None and emin == 1e-9 and method == "Jacobi-PCG":
-                project_comparison(output, rho, A, b, solution, metrics)
+                verification["project1_comparison"] = project_comparison(
+                    output, rho, A, b, solution, metrics)
         csv_write(results / "conditioning.csv", condition_rows)
         csv_write(results / "solvers.csv", solver_rows)
     make_figures(output, condition_rows, solver_rows, histories, spectra)

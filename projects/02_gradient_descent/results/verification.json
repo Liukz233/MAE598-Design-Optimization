@@ -51,6 +51,11 @@
     "jacobi_lower_bound": 351039.0807011441
   },
   "project1_compliance_reproduced": 210.04057115900133,
+  "project1_comparison": {
+    "cg_compliance_never_decreased": true,
+    "cg_largest_compliance_decrease": 0.0,
+    "cg_final_compliance": 206.31802404800524
+  },
   "extreme_modes": {
     "mesh": "24x8",
     "lambda_1": 9.064675906791135e-06,
