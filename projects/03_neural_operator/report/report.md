@@ -1,4 +1,4 @@
-# Project 3: Why an Energy-Trained PINN Stalls on Topology-Optimization Designs, and How to Fix It
+# Project 3: Training a Physics-Informed Neural Parameterization for Topology Optimization
 
 **Kangzheng Liu · OptiForge · MAE 598/494 Design Optimization**  
 **Official brief:** [Project 3: PINN/PINO in the Field](https://designinformaticslab.github.io/DesignOptimization2025/project3.html)  
@@ -6,9 +6,9 @@
 
 ## Summary
 
-Dr. Ma's group trains neural networks on the total potential energy to replace the equilibrium solve inside topology optimization (TO). Their displacement accuracy levels off under Adam. I reproduced this with a minimal case built on the Project 1 beam and the Project 2 energy formulation: a plain MLP trained on the exact FE energy of each design produced by the Project 1 optimizer.
+Dr. Ma works on topology optimization (TO), where every design update needs one equilibrium solve. Her group is exploring a neural parameterization of that solve: write the displacement field as a neural network and train it on the total potential energy, with no FE solutions as labels. This is a PINN in energy form. Her question for this project: on real TO designs, how accurately can such a network be trained, and what limits it? I built the minimal case on the Project 1 beam and the Project 2 energy formulation: a plain MLP trained on the exact FE energy of each design produced by the Project 1 optimizer.
 
-- **Reproduced.** With Adam, the displacement error on the final design is 6.3–8.3% after 20,000 steps (three seeds). It is still falling, but only about as $1/t$, which in practice looks like a plateau. Along the knob it grows 5 times as the design matures, from 1.6% to 8.3%. The same network fitted directly to the FE answer stays at 0.24–0.49%. So the network can represent the answer; the energy loss is what is hard to optimize.
+- **The limit.** With Adam, the displacement error on the final design is 6.3–8.3% after 20,000 steps (three seeds). It is still falling, but only about as $1/t$, which in practice looks like a plateau. Along the knob it grows 5 times as the design matures, from 1.6% to 8.3%. The same network fitted directly to the FE answer stays at 0.24–0.49%. So the network can represent the answer; the energy loss is what is hard to optimize.
 - **Cause.** The energy loss weights each error mode by its stiffness. The softest modes are the smooth deformations that carry the compliance, so they are learned last. Adam scales each parameter separately and cannot target these modes. On the uniform design, 99.9% of the Adam error lies in the five softest modes of $K$; for the supervised fit it is 0.4%.
 - **Fix.** Switching to L-BFGS after 10,000 Adam steps gives 0.18–0.42% on the final design (three seeds), under the 1% target, in about 270 s. Adam given more time (40,000 steps, 339 s) reaches only 3.3%.
 - **Project 2 links.** The solid–void contrast that broke CG in Project 2 does not matter here. Mesh refinement does: from $n_y=16$ to 80, $\kappa(K)$ grows 25 times and the Adam error 4.6 times.
@@ -19,17 +19,17 @@ Dr. Ma's group trains neural networks on the total potential energy to replace t
 
 | Date | Person | How I found them | Contact | Outcome |
 |---|---|---|---|---|
-| **[date]** | Dr. Leixin Ma, PI of the OASIS Lab | My PhD advisor; her group builds energy-trained surrogates for TO | In person | Agreed to take part; reviewed the problem brief and the memo on **[date]** |
+| **[date]** | Dr. Leixin Ma, PI of the OASIS Lab | My PhD advisor; works on TO and neural surrogates for it | In person | Agreed to take part; reviewed the problem brief and the memo on **[date]** |
 
 Reserved on the course participation sheet ("Project 3 URL" column) on **[date]**.
 
-**Disclosure.** I am a PhD student in Dr. Ma's lab and a co-author of the group's surrogate work. I chose her because the question this project asks came up in that work, and the schedule left no time for a second outreach round. To keep the study independent, it uses only the public Project 1 and 2 code and a plain MLP, not the group's network, code, or data.
+**Disclosure.** I am a PhD student in Dr. Ma's lab. I chose her because her TO work is PDE-based and she had a concrete question about neural parameterization, and the schedule left no time for a second outreach round. The study uses only the public Project 1 and 2 code and a plain MLP, no unpublished code or data.
 
 ## 2. Problem Brief
 
 *Dr. Ma reviewed this brief on **[date]**.*
 
-**The scientific question.** TO decides where to put material in a part so that it is as stiff as possible for its weight. Every design update needs the part's deformation under load, which means one equilibrium solve. A 2D run like Project 1 needs about 100 solves; 3D parts and nonlinear materials need more, and each solve gets expensive. Dr. Ma's group trains neural networks to take over this solve, aiming at 3D designs and hyperelastic materials. The answer matters for lightweight structural parts, such as aerospace and automotive brackets and frames, and for architected materials such as auxetic lattices, which must be designed under large, nonlinear deformation. A solve 10 times cheaper would make 3D nonlinear designs routine and leave room for multi-load and uncertainty studies, instead of rationing solves.
+**The scientific question.** TO decides where to put material in a part so that it is as stiff as possible for its weight. Every design update needs the part's deformation under load, which means one equilibrium solve. A 2D run like Project 1 needs about 100 solves. TO is used to design lightweight structural parts and architected materials; in 3D and with nonlinear materials, the solves dominate the cost of a design study.
 
 **The PDE.** Static equilibrium of a body whose stiffness depends on the design density $\rho(\mathbf x)$:
 
@@ -40,11 +40,11 @@ Reserved on the course participation sheet ("Project 3 URL" column) on **[date]*
 \boldsymbol\sigma=E(\rho)\,\mathbb C:\boldsymbol\varepsilon(\mathbf u),
 ```
 
-with $E(\rho)=E_{\min}+\rho^p(E_0-E_{\min})$ (SIMP). The group also uses Saint Venant–Kirchhoff and Neo-Hookean materials. Equivalently, $\mathbf u$ minimizes the total potential energy $\Pi(\mathbf u)=\int_\Omega W(\boldsymbol\varepsilon(\mathbf u);\rho)\,d\Omega-\int_{\Gamma_N}\mathbf t\cdot\mathbf u\,d\Gamma$. Nothing in the forward problem is unknown; the density changes at every design update.
+with $E(\rho)=E_{\min}+\rho^p(E_0-E_{\min})$ (SIMP). Equivalently, $\mathbf u$ minimizes the total potential energy $\Pi(\mathbf u)=\int_\Omega W(\boldsymbol\varepsilon(\mathbf u);\rho)\,d\Omega-\int_{\Gamma_N}\mathbf t\cdot\mathbf u\,d\Gamma$. Nothing in the forward problem is unknown; the density changes at every design update.
 
-**Current solver and cost.** Finite elements, with Abaqus for reference solutions. 2D linear benchmarks like Project 1 solve in well under a second. The 3D and hyperelastic cases the group targets need a Newton iteration per solve, each with a large sparse factorization, so one solve takes minutes and a run of 100–300 solves takes hours. Because of this cost, meshes are kept coarse and few design variations are run.
+**Current solver and cost.** Finite elements. A 2D linear case like Project 1 solves in under 0.1 s. 3D and nonlinear cases need large sparse factorizations, often inside a Newton loop, at every design update.
 
-**Prior PINN work and its limits.** The group trains a network label-free on $\Pi$, with Dirichlet penalty terms and the density as an input, and warm-starts it across design updates [7]. My understanding of the main limit: the displacement accuracy stops improving under Adam, and this gap, more than the network architecture, sets how far the surrogate's compliance is from FE. Penalty boundary conditions also leave artifacts. Whether this is a limit of the network, the loss, or the optimizer was an open question; this project tests it.
+**The idea being explored.** Replace the unknown displacement by a network, $\mathbf u=\mathbf u_{\boldsymbol\theta}(\mathbf x)$, and choose $\boldsymbol\theta$ by minimizing $\Pi$. Training needs no FE solutions, the loss is the physics itself, and a trained network could later be reused or warm-started across design updates. Such networks are usually trained with Adam, and how close they get to FE accuracy on real TO designs is not well established. **Dr. Ma's question:** how accurate is this neural parameterization on the designs that TO actually produces, and if it falls short, is the cause the network, the loss, or the optimizer?
 
 **What accuracy is useful.** About 1% error in compliance and in the displacement of the structure. Compliance is the TO objective, and the TO sensitivities are quadratic in the element displacements, so a 1% displacement error gives about a 2% sensitivity error. Errors of several percent can change which elements an OC update adds or removes.
 
@@ -69,13 +69,17 @@ u_y(x,y)=u_c\,d(x,y)\,N_y(\hat x,\hat y;\boldsymbol\theta),
 
 where $(\hat x,\hat y)=(x/L,\,y/H)$, $N$ is an MLP with four hidden layers of 64 tanh units (12,802 parameters), and $d=\min\big(1,\sqrt{(\hat x-1)^2+\hat y^2}\big)$ vanishes at the roller. The factors $x/L$ and $d$ impose the supports exactly ("hard" BCs). The scale $u_c=108$ is the Euler–Bernoulli midspan deflection of the full solid beam; it uses no FE information and only makes the network output order one.
 
-The network is evaluated at the 4,961 FE nodes, and the loss is the **exact FE energy** of those nodal values, $L(\boldsymbol\theta)=\Pi(\mathbf u_{\boldsymbol\theta})$. This is a Deep Ritz–type energy loss with FE quadrature, trained without labels, as in the group's method. With exact BCs and $K\mathbf u^\star=\mathbf F$,
+The network is evaluated at the 4,961 FE nodes, and the loss is the **exact FE energy** of those nodal values, $L(\boldsymbol\theta)=\Pi(\mathbf u_{\boldsymbol\theta})$. With exact BCs and $K\mathbf u^\star=\mathbf F$,
 
 ```math
 \Pi(\mathbf u)-\Pi(\mathbf u^\star)=\tfrac12\,\mathbf e^{\mathsf T}K\mathbf e,\qquad \mathbf e=\mathbf u-\mathbf u^\star .
 ```
 
 So the loss gap is the squared energy norm of the error. I report it as $(\Pi-\Pi^\star)/|\Pi^\star|=\mathbf e^{\mathsf T}K\mathbf e/C^\star$.
+
+**Why this is a PINN, and why the energy form.** A PINN parameterizes the solution of a PDE with a network and trains it on the physics instead of on data. The course's standard PINN uses the strong-form residual at collocation points. This project uses the energy form of the same idea (Deep Ritz [5], deep energy method [7]), for two reasons. First, it is the form Dr. Ma asked about. Second, the strong form does not suit TO designs: $\nabla\cdot(E(\rho)\,\mathbb C:\boldsymbol\varepsilon)$ contains $\nabla E$, and $E$ changes by nine orders of magnitude across a few elements at every solid–void boundary, while in the void the residual is multiplied by $10^{-9}$ and constrains nothing. The energy needs only first derivatives and handles the jumps naturally. Evaluating it with the FE element matrices makes its minimum exactly the FE solution, so any gap between the network and FE comes from the network or its training, not from discretization. (Neural reparameterization is also used for the design field in TO [12]; here it is applied to the displacement.)
+
+The single-design MLP is a probe of how this kind of network trains, not a proposed faster solver; Section 4.6 shows it is much slower than FE in 2D.
 
 **Training.** Adam: 20,000 steps, learning rate $10^{-3}$ decaying exponentially to $10^{-4}$, float32, with each element's rigid translation removed before its energy is evaluated (without this, float32 cancellation corrupts the energy; see Section 6). Adam then L-BFGS (the fix in Section 4.5): 10,000 Adam steps, then 500 L-BFGS iterations (at most 20 evaluations each, memory 50, strong-Wolfe line search) in float64. One CPU core per run; network seed 0 unless stated.
 
@@ -87,8 +91,8 @@ So the loss gap is the squared energy norm of the error. I report it as $(\Pi-\P
 |---|---|---|
 | 3D, many unknowns | 2D, 9,922 nodal displacements (9,880 free) | The mechanism studied (how the energy loss shapes training) does not need 3D. The cost conclusions do; see Section 6. |
 | Hyperelastic materials | Linear elasticity | $\Pi$ becomes quadratic, so the loss gap equals the energy-norm error and the reference is exact. Nonlinear failures are outside this case. |
-| Hypergraph network with density input, warm-started across designs | MLP trained on one density at a time | Separates the loss and optimizer from the architecture, which is what the reported limit points to. |
-| Penalty BCs | Exact BCs (penalty tested separately) | Removes a known, separate failure (Section 4.4, B5). |
+| Network that takes the design as input and is reused across designs | MLP trained on one design at a time | Isolates the loss and optimizer, which is what the question is about. |
+| Penalty BCs, common in practice | Exact BCs (penalty tested separately) | Removes a known, separate failure (Section 4.4, B5). |
 
 **Kept:** the actual SIMP density fields that OC produces (a $10^9$ solid–void contrast, gray regions, slender members), the same energy loss, and the same optimizer.
 
@@ -100,7 +104,7 @@ So the loss gap is the squared energy norm of the error. I report it as $(\Pi-\P
 
 **Secondary knobs from Project 2:** the void modulus $E_{\min}$ (solid–void contrast, Project 2 family A) on the final design, and the mesh resolution $n_y$ (Project 2 family B) on the uniform design. Project 2 showed both make $K$ badly conditioned.
 
-**Path C:** reproduce the stall, find its cause with controlled experiments, then fix it.
+**Path C:** measure how far the training gets along the knob, find the cause of the shortfall with controlled experiments, then fix it.
 
 ## 4. Experiments
 
@@ -114,7 +118,7 @@ The reference is the Project 1 sparse direct solve (SciPy SuperLU, one core) on 
 | Gray fraction ($0.1<\rho<0.9$) | 100% | 99% | 79% | 66% | 26% | 25% |
 | FE solve time (median of 7) | 79 ms | 92 ms | 84 ms | 83 ms | 81 ms | 77 ms |
 
-### 4.2 P3 – Reproducing the stall along the knob
+### 4.2 P3 – Accuracy along the knob
 
 ![Error versus the three knobs](../figures/error_vs_knobs.png)
 
@@ -140,7 +144,7 @@ With exact BCs the loss has one term, so panels (a) and (b) split it into strain
 - **The loss gap tracks the compliance error.** On the final design the loss gap is 7.2% and the compliance error 7.7% (Adam); 0.30% and 0.28% (L-BFGS). This is the Ritz property: if the field cannot be improved by rescaling it, $\mathbf F^{\mathsf T}\mathbf u=\mathbf u^{\mathsf T}K\mathbf u$, so $\Pi(\mathbf u)=-\tfrac12\mathbf F^{\mathsf T}\mathbf u$ and the relative gap equals the relative compliance shortfall. On other designs, where the amplitude is not yet optimal, the two differ by up to a factor of 3. In every energy-trained run with exact BCs, the PINN compliance is below the FE value (193.9 against 210.0 for Adam on the final design): **an under-trained energy PINN makes a design look stiffer than it is**, the same bias as truncated CG in Project 2. Since $\Pi^\star$ is unknown in practice, the loss value alone cannot tell how far off the compliance is.
 - **Penalty BCs (panel c).** With $\beta\sum u_{\text{fixed}}^2$ in the loss, a weak spring ($\beta=0.1$) lets the supports move (2.4% of the peak displacement); the error falls to 2.6% at step 14,000 and then rises to 3.6% as training converges to the wrong, spring-supported problem. A stiff spring ($\beta=10^3$) adds very stiff modes, and the error is still 95% after 20,000 steps. Exact BCs avoid this trade-off; it is a separate and avoidable failure.
 
-### 4.4 Diagnosis: what causes the stall
+### 4.4 Diagnosis: what limits the accuracy
 
 **B1 – Expressivity or optimization?** The Krishnapriyan test: train the same network, with the same Adam budget, to fit the FE displacement directly ($\lVert\mathbf u-\mathbf u^\star\rVert^2/\lVert\mathbf u^\star\rVert^2$). It reaches 0.24–0.49% on every design (table in 4.2), 18 times below the energy-trained error on the final design. **The network can represent the answer; the failure is in the energy-loss landscape.**
 
@@ -211,32 +215,32 @@ A single-instance PINN answers one design only, so in a TO loop it must be retra
 ## 5. Recommendation Memo
 
 > **To:** Dr. Leixin Ma, OASIS Lab · **From:** Kangzheng Liu · **Date:** **[date]**  
-> **Re:** Why energy-trained TO surrogates stall under Adam, and a cheap fix
+> **Re:** How accurately a neural parameterization trains on TO designs, and a cheap fix
 >
-> **Question.** Our energy-trained surrogates stop gaining displacement accuracy under Adam. Is that the network, the physics, or the optimizer?
+> **Question.** You asked how accurately a network trained only on the potential energy can represent the displacement on real TO designs, and what limits it: the network, the physics, or the optimizer.
 >
-> **What I tested.** A plain MLP trained on the exact FE energy of the 2D half-MBB designs produced by SIMP–OC (120×40 mesh, linear elasticity, exact BCs). Same loss and optimizer as our surrogate, simpler network, one design at a time. Reference: sparse direct FE.
+> **What I tested.** A plain MLP trained on the exact FE energy of the 2D half-MBB designs produced by SIMP–OC (120×40 mesh, linear elasticity, exact BCs). The energy loss and the Adam optimizer used for such networks, a simple network, one design at a time. Reference: sparse direct FE.
 >
 > **Findings.**
 > 1. **It is the optimizer on this loss, not the network.** The same network fitted directly to the FE answer reaches 0.2–0.5% on every design. Trained on the energy, it reaches 6–8% on the final design and gets worse as the design matures (1.6% early, 8.3% final).
 > 2. **Mechanism.** The energy loss weights each error mode by its stiffness. The smooth global modes that carry the compliance are the softest, so they are learned last, and the loss barely sees what is left. Adam's per-parameter scaling cannot reach these modes. On the uniform design, 99.9% of the Adam error lies in the five softest modes of $K$.
 > 3. **Fix.** 10,000 Adam steps, then L-BFGS: 0.18–0.42% on the final design over three seeds, in about 270 s. Twice the Adam steps reach only 3.3%.
 > 4. **Bias to watch.** An under-trained energy surrogate under-predicts compliance (in every exact-BC run here, and provably once the field's amplitude is optimal), so the design looks stiffer than it is. The loss value cannot reveal this without a reference.
-> 5. **Float32 trap.** Evaluating the element energy in float32 lost 1% (120×40) to 5% (240×80) of accuracy at the FE solution, because large displacements cancel against small strains. Subtracting each element's rigid translation before the quadratic form fixes it at no cost. Worth checking in our code.
+> 5. **Float32 trap.** Evaluating the element energy in float32 lost 1% (120×40) to 5% (240×80) of accuracy at the FE solution, because large displacements cancel against small strains. Subtracting each element's rigid translation before the quadratic form fixes it at no cost. Worth checking in any energy-trained code.
 > 6. **Not the cause:** the $E_{\min}$ contrast. **Makes it worse:** mesh refinement. **A separate failure:** penalty BCs (a weak penalty lets supports move; a strong one stalls training). Exact BC imposition removes it.
 > 7. **Cost.** In 2D the FE direct solve takes about 0.08 s; training takes minutes. Any speedup has to come from 3D or nonlinear problems, or from reuse across designs.
 >
-> **Confidence.** High for the mechanism in 2D linear elasticity (controlled comparisons, three seeds on the final design). Medium for our hypergraph network and hyperelastic materials: the loss is then nonconvex, and L-BFGS may need safeguards against bad line searches.
+> **Confidence.** High for the mechanism in 2D linear elasticity (controlled comparisons, three seeds on the final design). Medium for larger networks that take the design as input, and for hyperelastic materials: the loss is then nonconvex, and L-BFGS may need safeguards against bad line searches.
 >
-> **Recommendation.** Before changing the architecture, add an L-BFGS (or other curvature-aware) phase to the surrogate's training, check the float32 energy against float64 at a known solution, impose BCs exactly, and report compliance error against FE rather than the loss.
+> **Recommendation.** Before changing the architecture, add an L-BFGS (or other curvature-aware) phase to the training, check the float32 energy against float64 at a known solution, impose BCs exactly, and report compliance error against FE rather than the loss.
 >
-> **Next experiment.** Run the same Adam versus Adam-then-L-BFGS comparison with our network on one benchmark (cantilever, SVK), and measure the warm-start cost per OC update against an FE solve.
+> **Next experiment.** Repeat the Adam versus Adam-then-L-BFGS comparison with a network that takes the design as input, on one hyperelastic benchmark, and measure the warm-start cost per OC update against an FE solve.
 
 ## 6. Assumptions and Limitations
 
 - **2D, linear, one load case.** The mechanism (stiffness-weighted loss, diagonal optimizer) does not depend on dimension. Cost conclusions do: in 3D a direct solve grows much faster with size, so the break-even changes.
 - **Hyperelastic materials are not tested.** With SVK or Neo-Hookean, $\Pi$ is nonconvex and can lose ellipticity; L-BFGS line searches can then fail, and new failure modes appear.
-- **MLP, one design per network.** The group's network takes the density as input and is warm-started across designs. Warm starting changes the starting error, not the conditioning, so I expect the same slow modes, but I did not test it.
+- **MLP, one design per network.** Networks used in practice take the design as input and are warm-started across designs. Warm starting changes the starting error, not the conditioning, so I expect the same slow modes, but I did not test it.
 - **Output scale matters.** Setting $u_c$ from the mean modulus (2.4 times larger on the final design, 8 times on the uniform one) made the Adam error 1.9 and 5.6 times larger. The knob comparisons use one fixed, FE-free scale for all designs.
 - **Open points.** Why the uniform start ($k=0$) is harder than $k=2$, and why mature designs are harder, are not isolated. The mesh effect is explained only qualitatively, and the point-support singularity is not separated from it.
 - **Precision.** Adam runs use float32 with the translation-free element energy, which matches float64 to $2\times10^{-6}$ at the FE solution on both the $120\times40$ and $240\times80$ meshes. An earlier version without this fix had a 1–5% energy error that changed the mesh results; it was discarded and everything was re-run. L-BFGS runs in float64; logged energies and all errors are computed in float64.
@@ -271,8 +275,9 @@ python projects/03_neural_operator/src/make_figures.py      # figures, summary.j
 4. S. Wang, X. Yu, and P. Perdikaris, "When and why PINNs fail to train: A neural tangent kernel perspective," *J. Comput. Phys.*, 449, 110768, 2022.
 5. W. E and B. Yu, "The Deep Ritz method: A deep learning-based numerical algorithm for solving variational problems," *Commun. Math. Stat.*, 6, 1–12, 2018.
 6. E. Andreassen, A. Clausen, M. Schevenels, B. S. Lazarov, and O. Sigmund, "Efficient topology optimization in MATLAB using 88 lines of code," *Struct. Multidiscip. Optim.*, 43, 1–16, 2011.
-7. U. Punna, *A Physics-Informed Hypergraph Neural Network for Topology Optimization*, M.S. thesis, Arizona State University, 2025.
+7. E. Samaniego et al., "An energy approach to the solution of partial differential equations in computational mechanics via machine learning: Concepts, implementation and applications," *Comput. Methods Appl. Mech. Eng.*, 362, 112790, 2020.
 8. J. Nocedal and S. J. Wright, *Numerical Optimization*, 2nd ed., Springer, 2006, Chapter 7 (L-BFGS).
 9. P. Rathore, W. Lei, Z. Frangella, L. Lu, and M. Udell, "Challenges in training PINNs: A loss landscape perspective," *ICML*, PMLR 235, 2024.
 10. J. Müller and M. Zeinhofer, "Achieving high accuracy with PINNs via energy natural gradient descent," *ICML*, PMLR 202, 2023.
 11. N. McGreivy and A. Hakim, "Weak baselines and reporting biases lead to overoptimism in machine learning for fluid-related partial differential equations," *Nat. Mach. Intell.*, 6, 1256–1269, 2024.
+12. S. Hoyer, J. Sohl-Dickstein, and S. Greydanus, "Neural reparameterization improves structural optimization," arXiv:1909.04240, 2019.
