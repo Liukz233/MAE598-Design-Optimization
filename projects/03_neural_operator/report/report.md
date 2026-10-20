@@ -19,11 +19,11 @@ Dr. Ma works on topology optimization (TO), where every design update needs one 
 
 | Date | Person | How I found them | Format | Outcome |
 |---|---|---|---|---|
-| **[date]** | Dr. Leixin Ma, OASIS Lab | My PhD advisor | In person, about 30 min | Interviewed; brief and memo sent to her for review |
+| Fri, Oct 16, 2026, 1:00 pm | Dr. Leixin Ma, OASIS Lab | My PhD advisor | Lab group meeting, in person | Discussed neural parameterization for TO; brief and memo sent to her for review |
 
 Reserved on the course participation sheet on **[date]**.
 
-I am a PhD student in Dr. Ma's lab, so she was an easy contact. Her TO work is PDE-based and she had a specific question about neural networks, which made her a good fit. The study uses only the public Project 1 and 2 code, no unpublished code or data.
+I am a PhD student in Dr. Ma's lab, so she was an easy contact. The conversation took place at our regular group meeting, where we discussed this topic at a more advanced level; this project takes a simplified version of it. The study uses only the public Project 1 and 2 code, no unpublished code or data.
 
 ## 2. Problem Brief
 
