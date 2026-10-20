@@ -17,13 +17,13 @@ Dr. Ma works on topology optimization (TO), where every design update needs one 
 
 ## 1. Outreach Log
 
-| Date | Person | How I found them | Format | Outcome |
-|---|---|---|---|---|
-| Fri, Oct 9, 2026, 1:00 pm | Dr. Leixin Ma, OASIS Lab | My PhD advisor | In person | Interview: her TO work, the cost of the equilibrium solve, and neural parameterization of it. Agreed on the question for this project. |
-| Fri, Oct 16, 2026, 1:00 pm | Dr. Leixin Ma | — | In person | Follow-up: went over the minimal case and the plan for the experiments. |
-| Tue, Oct 20, 2026 | Dr. Leixin Ma | — | Email | Problem brief and recommendation memo sent for review. |
+| Date | Person | Format | Outcome |
+|---|---|---|---|
+| Fri, Oct 9, 2026, 1:00 pm | Dr. Leixin Ma, OASIS Lab | In person | Interview: her TO work, the cost of the equilibrium solve, and neural parameterization of it. Agreed on the question for this project. |
+| Fri, Oct 16, 2026, 1:00 pm | Dr. Leixin Ma | In person | Follow-up: went over the minimal case and the plan for the experiments. |
+| Tue, Oct 20, 2026 | Dr. Leixin Ma | Email | Problem brief and recommendation memo sent for review. |
 
-I am a PhD student in Dr. Ma's lab, so she was an easy contact. The study uses only the public Project 1 and 2 code, no unpublished code or data.
+The study uses only the public Project 1 and 2 code, no unpublished code or data.
 
 ## 2. Problem Brief
 
