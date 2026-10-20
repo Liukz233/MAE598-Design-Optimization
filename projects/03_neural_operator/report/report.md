@@ -17,21 +17,21 @@ Dr. Ma works on topology optimization (TO), where every design update needs one 
 
 ## 1. Outreach Log
 
-| Date | Person | How I found them | Contact | Outcome |
+| Date | Person | How I found them | Format | Outcome |
 |---|---|---|---|---|
-| **[date]** | Dr. Leixin Ma, PI of the OASIS Lab | My PhD advisor; works on TO and neural surrogates for it | In person | Agreed to take part; reviewed the problem brief and the memo on **[date]** |
+| **[date]** | Dr. Leixin Ma, OASIS Lab | My PhD advisor | In person, about 30 min | Interviewed; brief and memo sent to her for review |
 
-Reserved on the course participation sheet ("Project 3 URL" column) on **[date]**.
+Reserved on the course participation sheet on **[date]**.
 
-**Disclosure.** I am a PhD student in Dr. Ma's lab. I chose her because her TO work is PDE-based and she had a concrete question about neural parameterization, and the schedule left no time for a second outreach round. The study uses only the public Project 1 and 2 code and a plain MLP, no unpublished code or data.
+I am a PhD student in Dr. Ma's lab, so she was an easy contact. Her TO work is PDE-based and she had a specific question about neural networks, which made her a good fit. The study uses only the public Project 1 and 2 code, no unpublished code or data.
 
 ## 2. Problem Brief
 
-*Dr. Ma reviewed this brief on **[date]**.*
+*Reviewed by Dr. Ma on **[date]**.*
 
-**The scientific question.** TO decides where to put material in a part so that it is as stiff as possible for its weight. Every design update needs the part's deformation under load, which means one equilibrium solve. A 2D run like Project 1 needs about 100 solves. TO is used to design lightweight structural parts and architected materials; in 3D and with nonlinear materials, the solves dominate the cost of a design study.
+**What she works on.** Topology optimization: deciding where to put material so that a part is as stiff as possible for its weight (lightweight structures, architected materials). Every design update needs one equilibrium solve. In 2D this is cheap; the Project 1 beam solves in under 0.1 s. In 3D or with nonlinear materials, each solve is a large sparse factorization, often inside a Newton loop, repeated 100 or more times per design, and it dominates the cost.
 
-**The PDE.** Static equilibrium of a body whose stiffness depends on the design density $\rho(\mathbf x)$:
+**The PDE.** Static equilibrium with a density-dependent stiffness:
 
 ```math
 \nabla\cdot\boldsymbol\sigma(\mathbf u)=\mathbf 0\ \text{in }\Omega,\qquad
@@ -40,13 +40,13 @@ Reserved on the course participation sheet ("Project 3 URL" column) on **[date]*
 \boldsymbol\sigma=E(\rho)\,\mathbb C:\boldsymbol\varepsilon(\mathbf u),
 ```
 
-with $E(\rho)=E_{\min}+\rho^p(E_0-E_{\min})$ (SIMP). Equivalently, $\mathbf u$ minimizes the total potential energy $\Pi(\mathbf u)=\int_\Omega W(\boldsymbol\varepsilon(\mathbf u);\rho)\,d\Omega-\int_{\Gamma_N}\mathbf t\cdot\mathbf u\,d\Gamma$. Nothing in the forward problem is unknown; the density changes at every design update.
+with $E(\rho)=E_{\min}+\rho^p(E_0-E_{\min})$ (SIMP). Equivalently, $\mathbf u$ minimizes the total potential energy $\Pi$. All the physics is known; only $\rho$ changes between solves.
 
-**Current solver and cost.** Finite elements. A 2D linear case like Project 1 solves in under 0.1 s. 3D and nonlinear cases need large sparse factorizations, often inside a Newton loop, at every design update.
+**Where neural networks come in.** Her group is looking at a neural parameterization of the displacement: write $\mathbf u=\mathbf u_{\boldsymbol\theta}(\mathbf x)$ and train $\boldsymbol\theta$ by minimizing $\Pi$, with no FE solutions as labels. If it works, a trained network could be reused or warm-started across design updates. Training is usually done with Adam. How accurate this is on real TO designs, rather than on simple test cases, is the open part.
 
-**The idea being explored.** Replace the unknown displacement by a network, $\mathbf u=\mathbf u_{\boldsymbol\theta}(\mathbf x)$, and choose $\boldsymbol\theta$ by minimizing $\Pi$. Training needs no FE solutions, the loss is the physics itself, and a trained network could later be reused or warm-started across design updates. Such networks are usually trained with Adam, and how close they get to FE accuracy on real TO designs is not well established. **Dr. Ma's question:** how accurate is this neural parameterization on the designs that TO actually produces, and if it falls short, is the cause the network, the loss, or the optimizer?
+**Her question.** How close to FE does this get on the designs TO actually produces? If it falls short, is it the network, the loss, or the optimizer?
 
-**What accuracy is useful.** About 1% error in compliance and in the displacement of the structure. Compliance is the TO objective, and the TO sensitivities are quadratic in the element displacements, so a 1% displacement error gives about a 2% sensitivity error. Errors of several percent can change which elements an OC update adds or removes.
+**Useful accuracy.** About 1% in compliance, the TO objective. Errors of several percent can change which elements an OC update adds or removes.
 
 ## 3. Minimal Case Formulation
 
