@@ -1,0 +1,22 @@
+{
+  "python": "3.12.3",
+  "torch": "2.14.1+cu130",
+  "numpy": "2.3.5",
+  "scipy": "1.17.0",
+  "matplotlib": "3.10.8",
+  "platform": "Linux-6.18.44-fc-v139-x86_64-with-glibc2.39",
+  "cpu_threads_per_run": 1,
+  "parallel_runs": 2,
+  "processor": "x86_64",
+  "network": "MLP 2-64-64-64-64-2, tanh, Xavier-normal init, hard BCs",
+  "adam": {
+    "steps": 20000,
+    "lr": 0.001,
+    "lr_final": 0.0001,
+    "log_every": 500
+  },
+  "lbfgs": "10k Adam steps (float32), then 500 L-BFGS iterations (max_iter 20, history 50, strong Wolfe, float64)",
+  "seeds": "network seed in run id (s0, s1, s2)",
+  "density_sha256": "a8015a65dfd965614a1e3f1198d52c2ec274a564f428e38aba90d02ecf298db2",
+  "wall_seconds": 4227.194362699
+}

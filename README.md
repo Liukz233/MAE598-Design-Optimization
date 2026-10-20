@@ -30,7 +30,7 @@
 |---:|---|---:|---|---|---|
 | 1 | Problem formulation | 5% | [Workspace](projects/01_problem_formulation/) | [Open report](projects/01_problem_formulation/report/report.md) | Reviewed; ready to submit |
 | 2 | Ill-conditioned optimization | 5% | [Workspace](projects/02_gradient_descent/) | [Open report](projects/02_gradient_descent/report/report.md) | Reviewed; ready to submit |
-| 3 | Neural operator | 10% | [Workspace](projects/03_neural_operator/) | [Open template](projects/03_neural_operator/report/report.md) | Awaiting brief |
+| 3 | PINN/PINO in the field | 10% | [Workspace](projects/03_neural_operator/) | [Open report](projects/03_neural_operator/report/report.md) | Draft; interview details pending |
 | 4 | Engineering design | 10% | [Workspace](projects/04_engineering_design/) | [Open template](projects/04_engineering_design/report/report.md) | Awaiting brief |
 | 5 | Optimal control and reinforcement learning | 10% | [Workspace](projects/05_optimal_control_rl/) | [Open template](projects/05_optimal_control_rl/report/report.md) | Awaiting brief |
 

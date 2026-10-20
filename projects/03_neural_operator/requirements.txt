@@ -1,0 +1,5 @@
+numpy==2.3.5
+scipy==1.17.0
+matplotlib==3.10.8
+# CPU is enough; any recent PyTorch works (tested with 2.14.1)
+torch>=2.4
