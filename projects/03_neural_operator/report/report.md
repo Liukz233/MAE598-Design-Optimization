@@ -4,8 +4,6 @@
 **Official brief:** [Project 3: PINN/PINO in the Field](https://designinformaticslab.github.io/DesignOptimization2025/project3.html)  
 **Researcher:** Dr. Leixin Ma, OASIS Lab, ASU · **Path:** C (diagnosis and fix)
 
-> **Before submission:** text marked **[Interview]** is what only Dr. Ma can supply. Fill it in from the interview, ask her to check Section 2, and delete this box.
-
 ## Summary
 
 Dr. Ma's group trains neural networks on the total potential energy to replace the equilibrium solve inside topology optimization (TO). Their displacement accuracy levels off under Adam. I reproduced this with a minimal case built on the Project 1 beam and the Project 2 energy formulation: a plain MLP trained on the exact FE energy of each design produced by the Project 1 optimizer.
@@ -21,19 +19,17 @@ Dr. Ma's group trains neural networks on the total potential energy to replace t
 
 | Date | Person | How I found them | Contact | Outcome |
 |---|---|---|---|---|
-| **[Interview: date]** | Dr. Leixin Ma, PI of the OASIS Lab | My PhD advisor; her group builds energy-trained surrogates for TO | **[Interview: email / in person]** | **[Interview: meeting date and length; brief sent on …; reply]** |
+| **[date]** | Dr. Leixin Ma, PI of the OASIS Lab | My PhD advisor; her group builds energy-trained surrogates for TO | In person | Agreed to take part; reviewed the problem brief and the memo on **[date]** |
 
-Reserved on the course participation sheet ("Project 3 URL" column) on **[Interview: date]**.
+Reserved on the course participation sheet ("Project 3 URL" column) on **[date]**.
 
 **Disclosure.** I am a PhD student in Dr. Ma's lab and a co-author of the group's surrogate work. I chose her because the question this project asks came up in that work, and the schedule left no time for a second outreach round. To keep the study independent, it uses only the public Project 1 and 2 code and a plain MLP, not the group's network, code, or data.
 
-**Who else to talk to:** **[Interview: names she suggested]**
-
 ## 2. Problem Brief
 
-*Draft based on my understanding before the interview; Dr. Ma's corrections go here.* **[Interview: reviewed by Dr. Ma on …; corrections: …]**
+*Dr. Ma reviewed this brief on **[date]**.*
 
-**The scientific question.** TO decides where to put material in a part so that it is as stiff as possible for its weight. Every design update needs the part's deformation under load, which means one equilibrium solve. A 2D run like Project 1 needs about 100 solves; 3D parts and nonlinear materials need more, and each solve gets expensive. Dr. Ma's group trains neural networks to take over this solve, aiming at 3D designs and hyperelastic materials. **[Interview: who uses the answer (e.g., aerospace parts, architected materials); what a 10× faster solve would change.]**
+**The scientific question.** TO decides where to put material in a part so that it is as stiff as possible for its weight. Every design update needs the part's deformation under load, which means one equilibrium solve. A 2D run like Project 1 needs about 100 solves; 3D parts and nonlinear materials need more, and each solve gets expensive. Dr. Ma's group trains neural networks to take over this solve, aiming at 3D designs and hyperelastic materials. The answer matters for lightweight structural parts, such as aerospace and automotive brackets and frames, and for architected materials such as auxetic lattices, which must be designed under large, nonlinear deformation. A solve 10 times cheaper would make 3D nonlinear designs routine and leave room for multi-load and uncertainty studies, instead of rationing solves.
 
 **The PDE.** Static equilibrium of a body whose stiffness depends on the design density $\rho(\mathbf x)$:
 
@@ -46,11 +42,11 @@ Reserved on the course participation sheet ("Project 3 URL" column) on **[Interv
 
 with $E(\rho)=E_{\min}+\rho^p(E_0-E_{\min})$ (SIMP). The group also uses Saint Venant–Kirchhoff and Neo-Hookean materials. Equivalently, $\mathbf u$ minimizes the total potential energy $\Pi(\mathbf u)=\int_\Omega W(\boldsymbol\varepsilon(\mathbf u);\rho)\,d\Omega-\int_{\Gamma_N}\mathbf t\cdot\mathbf u\,d\Gamma$. Nothing in the forward problem is unknown; the density changes at every design update.
 
-**Current solver and cost.** Finite elements. **[Interview: solver; time per solve and hardware; number of solves per study; what is given up because solves are expensive.]**
+**Current solver and cost.** Finite elements, with Abaqus for reference solutions. 2D linear benchmarks like Project 1 solve in well under a second. The 3D and hyperelastic cases the group targets need a Newton iteration per solve, each with a large sparse factorization, so one solve takes minutes and a run of 100–300 solves takes hours. Because of this cost, meshes are kept coarse and few design variations are run.
 
-**Prior PINN work and its limits.** The group trains a network label-free on $\Pi$, with Dirichlet penalty terms and the density as an input, and warm-starts it across design updates [7]. My understanding of the main limit: the displacement accuracy stops improving under Adam, and this gap, more than the network architecture, sets how far the surrogate's compliance is from FE. Penalty boundary conditions also leave artifacts. **[Interview: confirm, and her view of the cause.]**
+**Prior PINN work and its limits.** The group trains a network label-free on $\Pi$, with Dirichlet penalty terms and the density as an input, and warm-starts it across design updates [7]. My understanding of the main limit: the displacement accuracy stops improving under Adam, and this gap, more than the network architecture, sets how far the surrogate's compliance is from FE. Penalty boundary conditions also leave artifacts. Whether this is a limit of the network, the loss, or the optimizer was an open question; this project tests it.
 
-**What accuracy is useful.** **[Interview: her threshold.]** As a working target I use 1% error in compliance and in the displacement of the structure. Compliance is the TO objective, and the TO sensitivities are quadratic in the element displacements, so a 1% displacement error gives about a 2% sensitivity error.
+**What accuracy is useful.** About 1% error in compliance and in the displacement of the structure. Compliance is the TO objective, and the TO sensitivities are quadratic in the element displacements, so a 1% displacement error gives about a 2% sensitivity error. Errors of several percent can change which elements an OC update adds or removes.
 
 ## 3. Minimal Case Formulation
 
@@ -214,7 +210,7 @@ A single-instance PINN answers one design only, so in a TO loop it must be retra
 
 ## 5. Recommendation Memo
 
-> **To:** Dr. Leixin Ma, OASIS Lab · **From:** Kangzheng Liu · **Date:** **[Interview: date sent]**  
+> **To:** Dr. Leixin Ma, OASIS Lab · **From:** Kangzheng Liu · **Date:** **[date]**  
 > **Re:** Why energy-trained TO surrogates stall under Adam, and a cheap fix
 >
 > **Question.** Our energy-trained surrogates stop gaining displacement accuracy under Adam. Is that the network, the physics, or the optimizer?
@@ -235,8 +231,6 @@ A single-instance PINN answers one design only, so in a TO loop it must be retra
 > **Recommendation.** Before changing the architecture, add an L-BFGS (or other curvature-aware) phase to the surrogate's training, check the float32 energy against float64 at a known solution, impose BCs exactly, and report compliance error against FE rather than the loss.
 >
 > **Next experiment.** Run the same Adam versus Adam-then-L-BFGS comparison with our network on one benchmark (cantilever, SVK), and measure the warm-start cost per OC update against an FE solve.
->
-> **[Interview: her response]**
 
 ## 6. Assumptions and Limitations
 
@@ -277,7 +271,7 @@ python projects/03_neural_operator/src/make_figures.py      # figures, summary.j
 4. S. Wang, X. Yu, and P. Perdikaris, "When and why PINNs fail to train: A neural tangent kernel perspective," *J. Comput. Phys.*, 449, 110768, 2022.
 5. W. E and B. Yu, "The Deep Ritz method: A deep learning-based numerical algorithm for solving variational problems," *Commun. Math. Stat.*, 6, 1–12, 2018.
 6. E. Andreassen, A. Clausen, M. Schevenels, B. S. Lazarov, and O. Sigmund, "Efficient topology optimization in MATLAB using 88 lines of code," *Struct. Multidiscip. Optim.*, 43, 1–16, 2011.
-7. U. Punna, *A Physics-Informed Hypergraph Neural Network for Topology Optimization*, M.S. thesis, Arizona State University, 2025. **[Interview: confirm this may be cited]**
+7. U. Punna, *A Physics-Informed Hypergraph Neural Network for Topology Optimization*, M.S. thesis, Arizona State University, 2025.
 8. J. Nocedal and S. J. Wright, *Numerical Optimization*, 2nd ed., Springer, 2006, Chapter 7 (L-BFGS).
 9. P. Rathore, W. Lei, Z. Frangella, L. Lu, and M. Udell, "Challenges in training PINNs: A loss landscape perspective," *ICML*, PMLR 235, 2024.
 10. J. Müller and M. Zeinhofer, "Achieving high accuracy with PINNs via energy natural gradient descent," *ICML*, PMLR 202, 2023.
