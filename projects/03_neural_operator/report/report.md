@@ -19,15 +19,15 @@ Dr. Ma works on topology optimization (TO), where every design update needs one 
 
 | Date | Person | How I found them | Format | Outcome |
 |---|---|---|---|---|
-| Fri, Oct 16, 2026, 1:00 pm | Dr. Leixin Ma, OASIS Lab | My PhD advisor | Lab group meeting, in person | Discussed neural parameterization for TO; brief and memo sent to her for review |
+| Fri, Oct 9, 2026, 1:00 pm | Dr. Leixin Ma, OASIS Lab | My PhD advisor | In person | Interview: her TO work, the cost of the equilibrium solve, and neural parameterization of it. Agreed on the question for this project. |
+| Fri, Oct 16, 2026, 1:00 pm | Dr. Leixin Ma | — | In person | Follow-up: went over the minimal case and the plan for the experiments. |
+| Tue, Oct 20, 2026 | Dr. Leixin Ma | — | Email | Problem brief and recommendation memo sent for review. |
 
-Reserved on the course participation sheet on **[date]**.
-
-I am a PhD student in Dr. Ma's lab, so she was an easy contact. The conversation took place at our regular group meeting, where we discussed this topic at a more advanced level; this project takes a simplified version of it. The study uses only the public Project 1 and 2 code, no unpublished code or data.
+I am a PhD student in Dr. Ma's lab, so she was an easy contact. The study uses only the public Project 1 and 2 code, no unpublished code or data.
 
 ## 2. Problem Brief
 
-*Reviewed by Dr. Ma on **[date]**.*
+*Sent to Dr. Ma for review on Oct 20, 2026.*
 
 **What she works on.** Topology optimization: deciding where to put material so that a part is as stiff as possible for its weight (lightweight structures, architected materials). Every design update needs one equilibrium solve. In 2D this is cheap; the Project 1 beam solves in under 0.1 s. In 3D or with nonlinear materials, each solve is a large sparse factorization, often inside a Newton loop, repeated 100 or more times per design, and it dominates the cost.
 
@@ -141,8 +141,8 @@ The uniform start, $k=0$, does not fit the trend: it is harder than $k=2$ (3.5% 
 With exact BCs the loss has one term, so panels (a) and (b) split it into strain energy $U$ and load work $W$ and compare each with its FE value ($U^\star=C^\star/2$, $W^\star=C^\star$). All energies are logged in float64.
 
 - **No imbalance.** All curves fall together. Under Adam they fall roughly as $1/t$ (log–log slope $-0.84$ after the first 15 s), slower than any fixed linear rate. That is what a first-order method gives when the curvatures are spread over many orders of magnitude: each error mode decays at its own rate, and the many slow ones add up to a power law.
-- **The loss gap tracks the compliance error.** On the final design the loss gap is 7.2% and the compliance error 7.7% (Adam); 0.30% and 0.28% (L-BFGS). This is the Ritz property: if the field cannot be improved by rescaling it, $\mathbf F^{\mathsf T}\mathbf u=\mathbf u^{\mathsf T}K\mathbf u$, so $\Pi(\mathbf u)=-\tfrac12\mathbf F^{\mathsf T}\mathbf u$ and the relative gap equals the relative compliance shortfall. On other designs, where the amplitude is not yet optimal, the two differ by up to a factor of 3. In every energy-trained run with exact BCs, the PINN compliance is below the FE value (193.9 against 210.0 for Adam on the final design): **an under-trained energy PINN makes a design look stiffer than it is**, the same bias as truncated CG in Project 2. Since $\Pi^\star$ is unknown in practice, the loss value alone cannot tell how far off the compliance is.
-- **Penalty BCs (panel c).** With $\beta\sum u_{\text{fixed}}^2$ in the loss, a weak spring ($\beta=0.1$) lets the supports move (2.4% of the peak displacement); the error falls to 2.6% at step 14,000 and then rises to 3.6% as training converges to the wrong, spring-supported problem. A stiff spring ($\beta=10^3$) adds very stiff modes, and the error is still 95% after 20,000 steps. Exact BCs avoid this trade-off; it is a separate and avoidable failure.
+- **The loss gap tracks the compliance error.** On the final design the loss gap is 7.2% and the compliance error 7.7% (Adam); 0.30% and 0.28% (L-BFGS). This is the Ritz property: if the field cannot be improved by rescaling it, $\mathbf F^{\mathsf T}\mathbf u=\mathbf u^{\mathsf T}K\mathbf u$, so $\Pi(\mathbf u)=-\tfrac12\mathbf F^{\mathsf T}\mathbf u$ and the relative gap equals the relative compliance shortfall. On other designs, where the amplitude is not yet optimal, the two can differ by a factor of up to about 3.5. In every energy-trained run with exact BCs, the PINN compliance is below the FE value (193.9 against 210.0 for Adam on the final design): **an under-trained energy PINN makes a design look stiffer than it is**, the same bias as truncated CG in Project 2. Since $\Pi^\star$ is unknown in practice, the loss value alone cannot tell how far off the compliance is.
+- **Penalty BCs (panels c and d).** With $\beta\sum u_{\text{fixed}}^2$ in the loss, a weak spring ($\beta=0.1$) lets the supports move (2.4% of the peak displacement); the error falls to 2.6% at step 14,000 and then rises to 3.6% as training converges to the wrong, spring-supported problem. A stiff spring ($\beta=10^3$) adds very stiff modes, and the error is still 95% after 20,000 steps. Panel (d) logs the two loss terms of these runs separately. With $\beta=0.1$ the BC term settles at about 10% of $|\Pi^\star|$: support motion is being traded against energy. With $\beta=10$ the BC term stays small but spiky while the energy term is still 29% off after 20,000 steps: the stiff penalty term dominates the step, the loss-imbalance pattern from the course notes. Exact BCs avoid this trade-off; it is a separate and avoidable failure.
 
 ### 4.4 Diagnosis: what limits the accuracy
 
@@ -214,7 +214,7 @@ A single-instance PINN answers one design only, so in a TO loop it must be retra
 
 ## 5. Recommendation Memo
 
-> **To:** Dr. Leixin Ma, OASIS Lab · **From:** Kangzheng Liu · **Date:** **[date]**  
+> **To:** Dr. Leixin Ma, OASIS Lab · **From:** Kangzheng Liu · **Date:** Oct 20, 2026  
 > **Re:** How accurately a neural parameterization trains on TO designs, and a cheap fix
 >
 > **Question.** You asked how accurately a network trained only on the potential energy can represent the displacement on real TO designs, and what limits it: the network, the physics, or the optimizer.

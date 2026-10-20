@@ -24,13 +24,19 @@
 
 **[Read the final Project 2 report](projects/02_gradient_descent/report/report.md)** — Conditioning, gradient descent, and preconditioned conjugate gradient for the Project 1 beam, with displacement and convergence comparisons.
 
+## Project 3 submission
+
+[![Project 3: training a physics-informed neural parameterization](projects/03_neural_operator/figures/error_vs_knobs.png)](projects/03_neural_operator/report/report.md)
+
+**[Read the final Project 3 report](projects/03_neural_operator/report/report.md)** — An energy-trained PINN for the Project 1 equilibrium solve: why Adam stalls on topology-optimization designs, a controlled diagnosis, and an L-BFGS fix, with reproducible code.
+
 ## Project index
 
 | Project | Topic | Weight | Workspace | Public Markdown report | Status |
 |---:|---|---:|---|---|---|
 | 1 | Problem formulation | 5% | [Workspace](projects/01_problem_formulation/) | [Open report](projects/01_problem_formulation/report/report.md) | Reviewed; ready to submit |
 | 2 | Ill-conditioned optimization | 5% | [Workspace](projects/02_gradient_descent/) | [Open report](projects/02_gradient_descent/report/report.md) | Reviewed; ready to submit |
-| 3 | PINN/PINO in the field | 10% | [Workspace](projects/03_neural_operator/) | [Open report](projects/03_neural_operator/report/report.md) | Draft; interview details pending |
+| 3 | PINN/PINO in the field | 10% | [Workspace](projects/03_neural_operator/) | [Open report](projects/03_neural_operator/report/report.md) | Reviewed; ready to submit |
 | 4 | Engineering design | 10% | [Workspace](projects/04_engineering_design/) | [Open template](projects/04_engineering_design/report/report.md) | Awaiting brief |
 | 5 | Optimal control and reinforcement learning | 10% | [Workspace](projects/05_optimal_control_rl/) | [Open template](projects/05_optimal_control_rl/report/report.md) | Awaiting brief |
 

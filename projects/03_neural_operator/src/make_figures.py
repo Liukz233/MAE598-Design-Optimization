@@ -116,7 +116,7 @@ def main():
     plt.close(fig)
 
     # ---------------- Figure 2: loss components (P2) ----------------
-    fig, axes = plt.subplots(1, 3, figsize=(12, 3.7), layout="constrained")
+    fig, axes = plt.subplots(1, 4, figsize=(16, 3.8), layout="constrained")
     C = ref_by["oc90"]["compliance"]
     for ax, rid, title in ((axes[0], "oc90_adam_s0", "(a) Energy loss, Adam"),
                            (axes[1], "oc90_lbfgs_s0", "(b) Energy loss, Adam then L-BFGS")):
@@ -144,6 +144,18 @@ def main():
     ax.set(xlabel="Adam step", ylabel="Displacement error (structure)", ylim=(1e-2, 3),
            title="(c) Dirichlet penalty vs exact BCs")
     ax.legend(fontsize=8)
+    # (d) the two loss terms of the penalty runs, logged separately
+    ax = axes[3]
+    for w, color in zip((1e-1, 1e1), ("#9cb6d6", "#5b86bf")):
+        h = history(res, f"bc{w:.0e}_adam_s0")
+        energy_gap = np.abs(h["strain_energy"] - h["load_work"] + C / 2) / (C / 2)
+        ax.loglog(h["iter"][1:], energy_gap[1:], color=color, lw=1.8,
+                  label=fr"$\beta={w:g}$: energy term $|\Pi-\Pi^\star|/|\Pi^\star|$")
+        ax.loglog(h["iter"][1:], h["bc_penalty"][1:] / (C / 2), color=color, lw=1.8, ls=":",
+                  label=fr"$\beta={w:g}$: BC term $\beta\sum u_{{\rm fixed}}^2/|\Pi^\star|$")
+    ax.set(xlabel="Adam step", ylabel="Loss term (relative)", ylim=(1e-4, 1e3),
+           title="(d) Penalty runs: the two loss terms")
+    ax.legend(fontsize=7.2, loc="upper right")
     fig.savefig(figdir / "loss_components.png", dpi=170)
     plt.close(fig)
 

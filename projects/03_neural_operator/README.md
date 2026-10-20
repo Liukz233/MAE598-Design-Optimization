@@ -14,9 +14,9 @@
 | Problem brief (researcher-checked) | Section 2 |
 | Minimal case: PDE, domain, BCs, parameters, difficulty knob, what was simplified, path | Section 3 |
 | P1 baseline (conventional solver, accuracy, wall-clock) | Section 4.1 |
-| P2 loss components logged separately, log scale | Section 4.3 |
+| P2 loss components logged separately, log scale | Section 4.3 (panels a, b, d) |
 | P3 relative L2 error vs. knob | Section 4.2 |
-| P4 error field and spectrum | Section 4.4 |
+| P4 error field and spectrum | Section 4.4 (B2) |
 | P5 training/inference time, hardware, break-even $N^\star$ | Section 4.6 |
 | Path B: failure along the knob + controlled experiment separating two causes | Sections 4.2 and 4.4 |
 | Path C: remedy targeting the diagnosed cause, before/after with P2–P5 | Section 4.5 |
