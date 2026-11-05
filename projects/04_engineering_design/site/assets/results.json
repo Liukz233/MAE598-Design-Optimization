@@ -1,0 +1,16 @@
+{
+  "status": "setup",
+  "note": "Preliminary design domain for the site placeholder. Dimensions will be fixed in the formulation; the solver will overwrite this file.",
+  "units": "mm",
+  "domain": { "Lx": 100.0, "Ly": 100.0, "thickness": 10.0 },
+  "passive_void": [ { "x0": 80.0, "x1": 100.0, "y0": -10.0, "y1": 10.0 } ],
+  "supports": [
+    { "x": 0.0, "y0": 40.0, "y1": 50.0 },
+    { "x": 0.0, "y0": -50.0, "y1": -40.0 }
+  ],
+  "input": { "x": 0.0, "y": 0.0, "dir": [1.0, 0.0] },
+  "outputs": [
+    { "x": 100.0, "y": 10.0, "dir": [0.0, -1.0] },
+    { "x": 100.0, "y": -10.0, "dir": [0.0, 1.0] }
+  ]
+}

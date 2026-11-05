@@ -1,9 +1,10 @@
-# Project 4 - Engineering Design
+# Project 4 - PDE-Constrained Design Optimization
 
 - **Weight:** 10%
-- **Status:** Awaiting the official assignment brief
-- **Primary report:** [`report/report.md`](report/report.md)
-- **Official brief:** Add the course link when released
+- **Structure:** compliant gripper (density-based layout, geometrically nonlinear analysis)
+- **Status:** In progress; final site due Nov 25, 2026
+- **Report website (primary deliverable):** <https://liukz233.github.io/MAE598-Design-Optimization/>, built from [`site/`](site/) by [`.github/workflows/pages.yml`](../../.github/workflows/pages.yml)
+- **Official brief:** [Project 4: PDE-Constrained Design Optimization](https://designinformaticslab.github.io/DesignOptimization2025/project4.html)
 
 ## Submission rule
 

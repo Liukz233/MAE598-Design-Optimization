@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{ page.title | default: site.title }}</title>
+<script>
+  window.MathJax = { tex: { inlineMath: [['$','$'], ['\\(','\\)']] } };
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js"></script>
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+               "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
+</script>
+<style>
+  :root { --fg: #1f2328; --muted: #59636e; --bg: #ffffff; --line: #d1d9e0; --panel: #f6f8fa; }
+  body { margin: 0; background: var(--bg); color: var(--fg);
+         font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
+  main { max-width: 860px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { line-height: 1.25; margin-top: 0.4em; }
+  h2 { border-bottom: 1px solid var(--line); padding-bottom: 0.2em; margin-top: 1.8em; }
+  table { border-collapse: collapse; display: block; overflow-x: auto; }
+  th, td { border: 1px solid var(--line); padding: 4px 10px; }
+  th { background: var(--panel); }
+  code { background: var(--panel); padding: 1px 4px; border-radius: 4px; }
+  .viewer { width: 100%; height: 420px; border: 1px solid var(--line); border-radius: 6px;
+            background: var(--panel); position: relative; }
+  .caption { color: var(--muted); font-size: 14px; }
+</style>
+</head><body><main>{{ content }}</main></body></html>

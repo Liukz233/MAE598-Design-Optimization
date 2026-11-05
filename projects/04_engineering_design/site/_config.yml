@@ -1,0 +1,5 @@
+title: "Project 4: Compliant Gripper Design Optimization"
+markdown: kramdown
+kramdown:
+  input: GFM
+  math_engine: mathjax

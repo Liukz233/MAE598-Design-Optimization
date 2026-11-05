@@ -37,7 +37,7 @@
 | 1 | Problem formulation | 5% | [Workspace](projects/01_problem_formulation/) | [Open report](projects/01_problem_formulation/report/report.md) | Reviewed; ready to submit |
 | 2 | Ill-conditioned optimization | 5% | [Workspace](projects/02_gradient_descent/) | [Open report](projects/02_gradient_descent/report/report.md) | Reviewed; ready to submit |
 | 3 | PINN/PINO in the field | 10% | [Workspace](projects/03_neural_operator/) | [Open report](projects/03_neural_operator/report/report.md) | Reviewed; ready to submit |
-| 4 | Engineering design | 10% | [Workspace](projects/04_engineering_design/) | [Open template](projects/04_engineering_design/report/report.md) | Awaiting brief |
+| 4 | PDE-constrained design optimization | 10% | [Workspace](projects/04_engineering_design/) | [Report website](https://liukz233.github.io/MAE598-Design-Optimization/) | In progress |
 | 5 | Optimal control and reinforcement learning | 10% | [Workspace](projects/05_optimal_control_rl/) | [Open template](projects/05_optimal_control_rl/report/report.md) | Awaiting brief |
 
 Project 1 explicitly requires a single publicly accessible Markdown report in the team repository. This repository therefore uses `report/report.md` as the stable primary report path for every project unless a later official brief specifies a different format. PDF exports are optional supplementary artifacts.
