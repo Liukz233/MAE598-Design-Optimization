@@ -30,6 +30,12 @@
 
 **[Read the final Project 3 report](projects/03_neural_operator/report/report.md)** — An energy-trained PINN for the Project 1 equilibrium solve: why Adam stalls on topology-optimization designs, a controlled diagnosis, and an L-BFGS fix, with reproducible code.
 
+## Project 4 submission
+
+[![Project 4: optimized heat-spreader plates for two radiation models](projects/04_engineering_design/site/assets/fig_designs.png)](https://liukz233.github.io/MAE598-Design-Optimization/)
+
+**[Open the Project 4 report website](https://liukz233.github.io/MAE598-Design-Optimization/)** — Lightest heat-spreader plate that keeps a power module and a transceiver within their temperature limits: own finite element solver with surface radiation, adjoint gradients, SLSQP, and a live 3D comparison of the initial and optimized plates. The same report as Markdown, without the 3D viewer, is in [`report/report.md`](projects/04_engineering_design/report/report.md).
+
 ## Project index
 
 | Project | Topic | Weight | Workspace | Public Markdown report | Status |
@@ -37,7 +43,7 @@
 | 1 | Problem formulation | 5% | [Workspace](projects/01_problem_formulation/) | [Open report](projects/01_problem_formulation/report/report.md) | Reviewed; ready to submit |
 | 2 | Ill-conditioned optimization | 5% | [Workspace](projects/02_gradient_descent/) | [Open report](projects/02_gradient_descent/report/report.md) | Reviewed; ready to submit |
 | 3 | PINN/PINO in the field | 10% | [Workspace](projects/03_neural_operator/) | [Open report](projects/03_neural_operator/report/report.md) | Reviewed; ready to submit |
-| 4 | PDE-constrained design optimization | 10% | [Workspace](projects/04_engineering_design/) | [Report website](https://liukz233.github.io/MAE598-Design-Optimization/) | In progress |
+| 4 | PDE-constrained design optimization | 10% | [Workspace](projects/04_engineering_design/) | [Report website](https://liukz233.github.io/MAE598-Design-Optimization/) · [Markdown](projects/04_engineering_design/report/report.md) | Ready to submit |
 | 5 | Optimal control and reinforcement learning | 10% | [Workspace](projects/05_optimal_control_rl/) | [Open template](projects/05_optimal_control_rl/report/report.md) | Awaiting brief |
 
 Project 1 explicitly requires a single publicly accessible Markdown report in the team repository. This repository therefore uses `report/report.md` as the stable primary report path for every project unless a later official brief specifies a different format. PDF exports are optional supplementary artifacts.

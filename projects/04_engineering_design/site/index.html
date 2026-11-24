@@ -1,0 +1,608 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Project 4: Lightest Heat-Spreader Plate for a Sealed Electronics Enclosure</title>
+<script>
+  window.MathJax = { tex: { inlineMath: [['\\(','\\)']], displayMath: [['\\[','\\]']] } };
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js"></script>
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+               "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
+</script>
+<style>
+  :root { --fg: #1f2328; --muted: #59636e; --bg: #ffffff; --line: #d1d9e0; --panel: #f6f8fa; }
+  body { margin: 0; background: var(--bg); color: var(--fg);
+         font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
+  main { max-width: 900px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { line-height: 1.25; margin-top: 0.4em; }
+  h2 { border-bottom: 1px solid var(--line); padding-bottom: 0.2em; margin-top: 1.8em; }
+  img { max-width: 100%; height: auto; }
+  a { color: #0969da; }
+  .table { overflow-x: auto; }
+  table { border-collapse: collapse; font-size: 14px; }
+  th, td { border: 1px solid var(--line); padding: 4px 10px; }
+  td:last-child { white-space: nowrap; }
+  th { background: var(--panel); }
+  code { background: var(--panel); padding: 1px 4px; border-radius: 4px; font-size: 90%; }
+  pre { background: var(--panel); padding: 10px 12px; border-radius: 6px; overflow-x: auto; }
+  pre code { padding: 0; }
+  mjx-container[display="true"] { overflow-x: auto; overflow-y: hidden; max-width: 100%; }
+
+  .viewer { position: relative; border: 1px solid var(--line); border-radius: 6px; padding: 10px; margin: 16px 0 6px; }
+  .v-wait { color: var(--muted); margin: 0; }
+  .v-controls { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; font-size: 14px; margin-bottom: 8px; }
+  .v-controls label { display: flex; align-items: center; gap: 6px; }
+  .v-controls .v-grow { flex: 1 1 220px; }
+  .v-controls .v-grow input { flex: 1; min-width: 80px; }
+  .v-controls select, .v-controls button { font: inherit; padding: 3px 8px; }
+  .v-panels { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .v-panel { min-width: 0; }
+  .v-title { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+  .v-host { width: 100%; background: var(--panel); border-radius: 4px; overflow: hidden; }
+  .v-host canvas { display: block; touch-action: none; }
+  .v-metrics table { width: 100%; margin-top: 6px; font-size: 13px; }
+  .v-metrics td { padding: 2px 6px; }
+  .v-metrics tr.ok td:last-child { color: #1a7f37; font-weight: 600; }
+  .v-metrics tr.bad td:last-child { color: #b42318; font-weight: 700; }
+  .v-legend { margin-top: 10px; font-size: 13px; color: var(--muted); }
+  .v-bar-wrap { position: relative; margin: 0 40px 34px 12px; }
+  .v-bar { height: 12px; border: 1px solid var(--line); border-radius: 2px; }
+  .v-ticks { position: relative; height: 0; }
+  .v-tick { position: absolute; top: 2px; transform: translateX(-50%); white-space: nowrap; font-size: 12px; color: var(--fg); }
+  .v-tick::before { content: ""; position: absolute; left: 50%; top: -16px; height: 16px; border-left: 1px solid #000; }
+  .v-tick:nth-child(n+3) { top: 16px; }
+  .v-tip { position: absolute; z-index: 5; max-width: 300px; background: #fff; border: 1px solid var(--line);
+           border-radius: 6px; padding: 6px 9px; font-size: 13px; line-height: 1.4; pointer-events: none;
+           box-shadow: 0 2px 8px rgba(0,0,0,.15); }
+  .caption { color: var(--muted); font-size: 14px; }
+  @media (max-width: 700px) {
+    .v-panels { grid-template-columns: 1fr; }
+    body { font-size: 15px; }
+  }
+</style>
+</head><body><main>
+<h1>Project 4: Lightest Heat-Spreader Plate for a Sealed Electronics Enclosure</h1>
+<p><strong>Kangzheng Liu · OptiForge · MAE 598/494 Design Optimization</strong><br />
+<strong>Official brief:</strong> <a href="https://designinformaticslab.github.io/DesignOptimization2025/project4.html">Project 4: PDE-Constrained Design Optimization</a><br />
+<strong>Structure:</strong> heat sink for a power chip (from the menu) · <strong>Nonlinear component:</strong> N2, surface radiation · <strong>Code:</strong> <a href="https://github.com/Liukz233/MAE598-Design-Optimization/tree/main/projects/04_engineering_design">repository</a></p>
+<h2>Summary</h2>
+<p>A sealed, fanless electronics enclosure has no vents, so its aluminium lid is also its heat sink. The lid here is a 300 × 200 mm plate with a 20 W power module and a 1.5 W optical transceiver mounted on the inside. The outside loses heat to 40 °C air by natural convection and radiation. I chose the thickness of each 12.5 mm tile of the plate (384 variables, 1 to 8 mm) to minimize mass while keeping the module at or below 85 °C and the transceiver at or below 62 °C.</p>
+<ul>
+<li>The optimized plate weighs 231.6 g and meets both limits. The uniform 2 mm starting plate weighs 324 g and violates both, with the module at 90.9 °C.</li>
+<li>No uniform plate is feasible. Thickening the plate cools the module but warms the transceiver. The thinnest uniform plate that satisfies the module constraint is 2.80 mm (454 g), and it leaves the transceiver at 64.4 °C.</li>
+<li>Radiation carries 52% of the heat, so the state equation is nonlinear in temperature. It is solved by Newton's method in 4 iterations, and the gradients of both constraints come from the adjoint at the converged state in 0.039 s, against 15 s for finite differences.</li>
+<li>The nonlinearity changes the design. If radiation is linearized about ambient, the optimizer needs 340 g, 47% more. Checked with the nonlinear model, that plate is 2.8 K and 1.9 K below the two limits, so the extra metal is not needed.</li>
+<li>The solver passes all 15 checks of the verification ladder (Section 3).</li>
+</ul>
+<div id="viewer" class="viewer"><p class="v-wait">Loading the 3D comparison…</p></div>
+
+<p class="caption">Left: the uniform starting plate. Right: the optimized plate. Drag to rotate (the two views share one camera) and scroll to zoom. Plan dimensions are to scale; thickness is drawn 5 times too large by default, and the slider changes that factor. The flat mounting face is at the bottom. Colour is the plate temperature from the nodal values of the finite element solution; each element is drawn as four triangles around its centre value, which is what the bilinear shape functions give there. The play button steps the right panel through the optimizer's iterations.</p>
+
+<h2>1. Structure and formulation</h2>
+<p><strong>Why it matters.</strong> Outdoor radio units, LED drivers and similar equipment are sealed against dust and water, so they cannot use fans. All heat leaves through the enclosure walls, and the wall thickness sets how well heat spreads from a hot component to the rest of the surface. A thicker wall runs the hot component cooler but adds weight and, as shown below, warms the neighbouring parts.</p>
+<p><strong>Setup.</strong> The plate is machined from 8 mm stock, with pockets cut from the outer face. Components sit on the flat inner face.</p>
+<div class="table"><table>
+<thead>
+<tr>
+<th>Quantity</th>
+<th>Value</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Plate</td>
+<td>300 × 200 mm, aluminium 6061-T6, \(k=167\) W/(m·K), \(\rho=2700\) kg/m³</td>
+<td>Data sheet [3]</td>
+</tr>
+<tr>
+<td>Surface</td>
+<td>Anodized, emissivity \(\varepsilon=0.82\)</td>
+<td>[2], Table A.11</td>
+</tr>
+<tr>
+<td>Convection</td>
+<td>\(h=6\) W/(m²·K), outer face only</td>
+<td>Free convection in gases is 2 to 25 W/(m²·K) [2, Table 1.1]; plate correlations at a 30 K rise give 5 to 6 [2, Ch. 9]</td>
+</tr>
+<tr>
+<td>Ambient and surroundings</td>
+<td>\(T_\infty=40\) °C</td>
+<td>Hot-day design assumption</td>
+</tr>
+<tr>
+<td>Power module</td>
+<td>20 W on 25 × 25 mm, mounting face at most 85 °C</td>
+<td>Assumed device: junction limit 125 °C, less 20 W × 1.5 K/W from junction to plate, less a 10 K margin</td>
+</tr>
+<tr>
+<td>Optical transceiver</td>
+<td>1.5 W on 25 × 25 mm, plate under it at most 62 °C</td>
+<td>Commercial-grade case rating 70 °C at 1.5 W [4], less 1.5 W × 4 K/W for the cage and pad (assumed), less a 2 K margin</td>
+</tr>
+<tr>
+<td>Thickness</td>
+<td>1 to 8 mm</td>
+<td>Stock plate; 1 mm is the thinnest floor I assume can be machined</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Design variables.</strong> One variable per tile, \(x_j\in[0,1]\), \(j=1,\dots,384\), with tile thickness</p>
+<p>\[t_j = t_{\min} + (t_{\max}-t_{\min})\,x_j ,\qquad t_{\min}=1\ \text{mm},\quad t_{\max}=8\ \text{mm}.\]</p>
+<p><strong>Objective and constraints.</strong> With \(\theta=T-T_\infty\) the temperature rise, \(A_{\text{tile}}\) the tile area, and \(\mathcal N_c\) the 25 mesh nodes under component \(c\):</p>
+<p>\[\begin{aligned}
+\min_{\mathbf x}\quad &amp; m(\mathbf x)=\rho A_{\text{tile}}\sum_j t_j \\
+\text{s.t.}\quad &amp; g_c(\mathbf x)=\mathrm{KS}\!\left(\frac{\theta_i}{\theta_c^{\max}},\ i\in\mathcal N_c\right)-1\le 0,\qquad c\in\{\text{module},\ \text{transceiver}\},\\
+&amp; 0\le x_j\le 1 ,
+\end{aligned}\]</p>
+<p>where \(\theta^{\max}_{\text{module}}=45\) K, \(\theta^{\max}_{\text{transceiver}}=22\) K, and \(T\) solves the state equation of Section 2. The peak temperature under a component is not differentiable where the hottest node changes, so each constraint uses the Kreisselmeier–Steinhauser aggregate [5]</p>
+<p>\[\mathrm{KS}(\mathbf a)=a_{\max}+\frac1{\rho_{KS}}\ln\sum_i e^{\rho_{KS}(a_i-a_{\max})},\qquad
+a_{\max}\le \mathrm{KS}(\mathbf a)\le a_{\max}+\frac{\ln N}{\rho_{KS}} .\]</p>
+<p>With \(\rho_{KS}=200\) and \(N=25\) the aggregate overestimates the peak by at most 0.72 K for the module and 0.35 K for the transceiver. I report the true peaks next to the aggregate.</p>
+<h2>2. Analysis model</h2>
+<p><strong>Governing equation.</strong> The plate is thin and conducts well, so its temperature is uniform through the thickness: the Biot number \((h+h_r)\,t/k\) is 0.0006 at the thickest point. An energy balance on a column of plate gives the fin equation in two dimensions,</p>
+<p>\[-\nabla\!\cdot\!\big(k\,t\,\nabla T\big)+h\,(T-T_\infty)+\varepsilon\sigma\,(T^4-T_\infty^4)=q
+\ \ \text{in }\Omega,\qquad k\,t\,\frac{\partial T}{\partial n}=0\ \ \text{on }\partial\Omega ,\]</p>
+<p>with \(T\) in kelvin, \(t(x,y)\) the thickness, and \(q\) the heat flux from the components (\(P_c/A_c\) under each one, zero elsewhere). Conduction is in the plane, and the surface terms act on the outer face. The \(T^4\) term makes the equation nonlinear.</p>
+<p><strong>Discretization.</strong> Four-node bilinear rectangles on a 48 × 32 grid (6.25 mm elements, 1617 unknowns). Each design tile covers 2 × 2 elements. The discrete residual is</p>
+<p>\[\begin{aligned}
+&amp;\mathbf R(\mathbf T;\mathbf t)=\mathbf K_c(\mathbf t)\,\mathbf T+h\,\mathbf M\,(\mathbf T-T_\infty\mathbf 1)+\mathbf r(\mathbf T)-\mathbf Q=\mathbf 0,\\
+&amp;\mathbf K_c=\sum_e k\,t_e\,\mathbf k_0,\qquad
+r_i=\varepsilon\sigma\!\int_\Omega N_i\,(T_h^4-T_\infty^4)\,dA ,
+\end{aligned}\]</p>
+<p>where \(\mathbf k_0=\int\nabla N^{\mathsf T}\nabla N\,dA\) is the element conduction matrix for unit \(k\,t\), \(\mathbf M=\int N^{\mathsf T}N\,dA\), and \(T_h=\sum_i N_iT_i\). The radiation integrals use 3 × 3 Gauss points, which is exact for these polynomials. Newton's method starts from \(T_\infty\) and uses the tangent</p>
+<p>\[\mathbf K_T=\frac{\partial\mathbf R}{\partial\mathbf T}=\mathbf K_c+h\,\mathbf M+\varepsilon\sigma\!\int_\Omega 4\,T_h^3\,N^{\mathsf T}N\,dA ,\]</p>
+<p>which is symmetric positive definite. It stops when \(\lVert\mathbf R\rVert/\lVert\mathbf Q\rVert&lt;10^{-10}\). Global matrices are sparse (<code>scipy.sparse</code>), and the solver is my own code in <a href="https://github.com/Liukz233/MAE598-Design-Optimization/blob/main/projects/04_engineering_design/src/plate.py"><code>plate.py</code></a>; no FE library is used.</p>
+<p><strong>Assumptions.</strong></p>
+<ul>
+<li>Temperature is uniform through the thickness (small Biot number). Spreading through the thickness directly under the module is ignored.</li>
+<li>\(h\) is constant. In natural convection it grows roughly as \(\theta^{1/4}\).</li>
+<li>The surface is gray and diffuse and sees large surroundings at \(T_\infty\).</li>
+<li>Only the outer face exchanges heat. The inner face faces the electronics and is taken as adiabatic, as are the plate edges.</li>
+<li>Steps between tiles do not add surface area.</li>
+<li>Each component is a uniform heat flux on its footprint. Interface resistances are accounted for in the limits, not in the model.</li>
+</ul>
+<p><strong>Mesh check.</strong> The optimized design re-analysed on coarser and finer meshes:</p>
+<div class="table"><table>
+<thead>
+<tr>
+<th style="text-align: right;">Element size (mm)</th>
+<th style="text-align: right;">Elements</th>
+<th style="text-align: right;">Module peak (°C)</th>
+<th style="text-align: right;">Transceiver peak (°C)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: right;">12.5</td>
+<td style="text-align: right;">384</td>
+<td style="text-align: right;">84.72</td>
+<td style="text-align: right;">61.87</td>
+</tr>
+<tr>
+<td style="text-align: right;">6.25</td>
+<td style="text-align: right;">1536</td>
+<td style="text-align: right;">84.72</td>
+<td style="text-align: right;">61.88</td>
+</tr>
+<tr>
+<td style="text-align: right;">3.125</td>
+<td style="text-align: right;">6144</td>
+<td style="text-align: right;">84.77</td>
+<td style="text-align: right;">61.88</td>
+</tr>
+<tr>
+<td style="text-align: right;">1.5625</td>
+<td style="text-align: right;">24576</td>
+<td style="text-align: right;">84.77</td>
+<td style="text-align: right;">61.88</td>
+</tr>
+</tbody>
+</table></div>
+<p>The peaks change by less than 0.1 K, which is smaller than the KS margin.</p>
+<h2>3. Verification</h2>
+<p>All checks run from <a href="https://github.com/Liukz233/MAE598-Design-Optimization/blob/main/projects/04_engineering_design/src/verify.py"><code>verify.py</code></a> each time the results are regenerated.</p>
+<div class="table"><table>
+<thead>
+<tr>
+<th></th>
+<th>Test</th>
+<th>Quantity</th>
+<th style="text-align: right;">Solver</th>
+<th style="text-align: right;">Exact</th>
+<th style="text-align: right;">Rel. error</th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>V1</td>
+<td>Linear fin, exact solution</td>
+<td>base temperature rise (K)</td>
+<td style="text-align: right;">171.3215</td>
+<td style="text-align: right;">171.322</td>
+<td style="text-align: right;">2.9e-06</td>
+<td>pass</td>
+</tr>
+<tr>
+<td>V1</td>
+<td>Linear fin, exact solution</td>
+<td>tip temperature rise (K)</td>
+<td style="text-align: right;">103.1434</td>
+<td style="text-align: right;">103.1439</td>
+<td style="text-align: right;">4.6e-06</td>
+<td>pass</td>
+</tr>
+<tr>
+<td>V2</td>
+<td>Manufactured solution, mesh refinement</td>
+<td>L2 error convergence rate</td>
+<td style="text-align: right;">1.992576</td>
+<td style="text-align: right;">2</td>
+<td style="text-align: right;">3.7e-03</td>
+<td>pass</td>
+</tr>
+<tr>
+<td>V3</td>
+<td>Global heat balance</td>
+<td>heat leaving the plate, uniform 2 mm (W)</td>
+<td style="text-align: right;">21.5</td>
+<td style="text-align: right;">21.5</td>
+<td style="text-align: right;">6.3e-14</td>
+<td>pass</td>
+</tr>
+<tr>
+<td>V3</td>
+<td>Global heat balance</td>
+<td>heat leaving the plate, random thickness (W)</td>
+<td style="text-align: right;">21.5</td>
+<td style="text-align: right;">21.5</td>
+<td style="text-align: right;">4.9e-13</td>
+<td>pass</td>
+</tr>
+<tr>
+<td>V4</td>
+<td>Zero modes of the conduction matrix</td>
+<td>number of zero eigenvalues</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">0.0e+00</td>
+<td>pass</td>
+</tr>
+<tr>
+<td>V4</td>
+<td>Mirror the plate in x</td>
+<td>largest temperature difference (K)</td>
+<td style="text-align: right;">3.979039e-13</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">1.0e-14</td>
+<td>pass</td>
+</tr>
+<tr>
+<td>V4</td>
+<td>Rotate the plate by 90 degrees</td>
+<td>largest temperature difference (K)</td>
+<td style="text-align: right;">3.979039e-12</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">1.0e-13</td>
+<td>pass</td>
+</tr>
+<tr>
+<td>V5</td>
+<td>Uniformly heated radiating plate</td>
+<td>plate temperature (K)</td>
+<td style="text-align: right;">367.3934</td>
+<td style="text-align: right;">367.3934</td>
+<td style="text-align: right;">2.0e-15</td>
+<td>pass</td>
+</tr>
+<tr>
+<td>V5</td>
+<td>Radiating fin, energy first integral</td>
+<td>base heat flow (W/m)</td>
+<td style="text-align: right;">249.9998</td>
+<td style="text-align: right;">250</td>
+<td style="text-align: right;">8.4e-07</td>
+<td>pass</td>
+</tr>
+<tr>
+<td>V5</td>
+<td>Newton's method on the design model</td>
+<td>observed convergence order</td>
+<td style="text-align: right;">1.975162</td>
+<td style="text-align: right;">2</td>
+<td style="text-align: right;">1.2e-02</td>
+<td>pass</td>
+</tr>
+<tr>
+<td>V6</td>
+<td>Adjoint vs central difference, nonlinear model</td>
+<td>directional derivative of g_chip (worst of 3 directions)</td>
+<td style="text-align: right;">0.01760666</td>
+<td style="text-align: right;">0.01760666</td>
+<td style="text-align: right;">3.2e-08</td>
+<td>pass</td>
+</tr>
+<tr>
+<td>V6</td>
+<td>Adjoint vs central difference, nonlinear model</td>
+<td>directional derivative of g_optic (worst of 3 directions)</td>
+<td style="text-align: right;">0.02925955</td>
+<td style="text-align: right;">0.02925955</td>
+<td style="text-align: right;">3.1e-08</td>
+<td>pass</td>
+</tr>
+<tr>
+<td>V6</td>
+<td>Adjoint vs central difference, linearized model</td>
+<td>directional derivative of g_chip (worst of 3 directions)</td>
+<td style="text-align: right;">-0.0119779</td>
+<td style="text-align: right;">-0.0119779</td>
+<td style="text-align: right;">1.6e-07</td>
+<td>pass</td>
+</tr>
+<tr>
+<td>V6</td>
+<td>Adjoint vs central difference, linearized model</td>
+<td>directional derivative of g_optic (worst of 3 directions)</td>
+<td style="text-align: right;">0.0003993534</td>
+<td style="text-align: right;">0.0003993542</td>
+<td style="text-align: right;">2.2e-06</td>
+<td>pass</td>
+</tr>
+</tbody>
+</table></div>
+<p>For the two invariance rows the exact value is zero, and the error is the difference divided by the largest temperature rise.</p>
+<p>Where the exact answers come from:</p>
+<p><strong>V1, linear fin.</strong> A strip of constant thickness with heat flow \(q'\) per unit width entering at \(x=0\), an insulated tip, and convection only obeys \(k\,t\,\theta''=h\,\theta\). With \(m=\sqrt{h/(k\,t)}\), the solution is \(\theta(x)=q'\cosh\!\big(m(L-x)\big)/\big(k\,t\,m\sinh mL\big)\) [2, Ch. 3].</p>
+<p><strong>V2, manufactured solution.</strong> I picked \(\theta^\star=\theta_0\cos(\pi x/L_x)\cos(\pi y/L_y)\), which has zero flux on all edges, and a thickness \(t=t_0(1+x/L_x)\). Substituting into the full equation, including the \(T^4\) term, gives the source \(q\) that makes \(\theta^\star\) exact. The \(L_2\) error of bilinear elements should fall as the square of the element size; the measured slope is 1.99.</p>
+<p><strong>V3, heat balance.</strong> The shape functions sum to one, so summing all rows of \(\mathbf R=\mathbf 0\) gives heat out equal to heat in.</p>
+<p><strong>V4, zero modes and invariance.</strong> A uniform temperature conducts no heat, so \(\mathbf K_c\) must have exactly one zero eigenvalue. This is the thermal counterpart of a rigid-body mode. Mirroring or rotating the plate together with its thickness field and loads must return the same temperatures.</p>
+<p><strong>V5, radiation.</strong> (a) A plate heated uniformly with radiation only stays uniform at \(T=(T_\infty^4+q/\varepsilon\sigma)^{1/4}\). (b) For a fin with radiation only, multiplying \(k\,t\,T''=\varepsilon\sigma(T^4-T_\infty^4)\) by \(T'\) and integrating from the base to the insulated tip gives an exact relation between the base heat flow and the two end temperatures,</p>
+<p>\[q'^2=2\,k\,t\,\varepsilon\sigma\left[\frac{T_0^5-T_L^5}{5}-T_\infty^4\,(T_0-T_L)\right].\]</p>
+<p>I apply \(q'\), read \(T_0\) and \(T_L\) from the solver, and compare the right-hand side with the applied value. (c) Newton's residuals on the design model are 1.1e-02, 5.3e-05, 1.4e-09, 1.4e-13, an observed order of 1.98.</p>
+<p><strong>V6, gradients.</strong> See Section 4.</p>
+<p><img alt="Verification plots" src="assets/fig_verification.png" /></p>
+<h2>4. Sensitivities</h2>
+<p><strong>Adjoint.</strong> A constraint depends on the design only through the temperature, \(g=g(\mathbf T(\mathbf t))\), and \(\mathbf T\) is defined implicitly by \(\mathbf R(\mathbf T;\mathbf t)=\mathbf 0\). Differentiating the residual gives \(\mathbf K_T\,d\mathbf T/dt_e=-\partial\mathbf R/\partial t_e\). Introducing the adjoint \(\boldsymbol\lambda\) removes the need to solve this for every element:</p>
+<p>\[\mathbf K_T^{\mathsf T}\boldsymbol\lambda=-\left(\frac{\partial g}{\partial\mathbf T}\right)^{\mathsf T},
+\qquad
+\frac{dg}{dt_e}=\boldsymbol\lambda^{\mathsf T}\frac{\partial\mathbf R}{\partial t_e}
+=k\,\boldsymbol\lambda_e^{\mathsf T}\mathbf k_0\mathbf T_e .\]</p>
+<p>Only the conduction matrix depends on the thickness, so \(\partial\mathbf R/\partial t_e=k\,\mathbf k_0\mathbf T_e\) involves a single element. The chain rule to the design variables is \(dg/dx_j=(t_{\max}-t_{\min})\sum_{e\in\text{tile }j}dg/dt_e\). For the KS constraint, \(\partial g/\partial T_i=w_i/\theta^{\max}_c\) with \(w_i=e^{\rho_{KS}a_i}/\sum_l e^{\rho_{KS}a_l}\) on the component's nodes and zero elsewhere.</p>
+<p>The nonlinear solve does not need to be differentiated step by step. By the implicit function theorem only \(\mathbf K_T\) at the converged temperature matters. \(\mathbf K_T\) is symmetric and its factorization from the last Newton step is reused, so each constraint gradient costs one back-substitution. \(\boldsymbol\lambda\) is the Lagrange multiplier of the state equation in the KKT conditions of the full problem. The mass is explicit: \(\partial m/\partial x_j=\rho A_{\text{tile}}(t_{\max}-t_{\min})\). The linearized model of Section 6 uses the same formulas with a constant \(\mathbf K_T\).</p>
+<p><strong>Gradient check.</strong> Directional derivatives \(\nabla g\cdot\mathbf v\) from the adjoint against central differences, at a random design, for three random directions per constraint (worst case shown). The design has one kind of variable, tile thickness.</p>
+<div class="table"><table>
+<thead>
+<tr>
+<th>Check</th>
+<th>Quantity</th>
+<th style="text-align: right;">Adjoint</th>
+<th style="text-align: right;">Central difference</th>
+<th style="text-align: right;">Rel. error</th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Adjoint vs central difference, nonlinear model</td>
+<td>directional derivative of g_chip (worst of 3 directions)</td>
+<td style="text-align: right;">0.01760666</td>
+<td style="text-align: right;">0.01760666</td>
+<td style="text-align: right;">3.2e-08</td>
+<td>pass</td>
+</tr>
+<tr>
+<td>Adjoint vs central difference, nonlinear model</td>
+<td>directional derivative of g_optic (worst of 3 directions)</td>
+<td style="text-align: right;">0.02925955</td>
+<td style="text-align: right;">0.02925955</td>
+<td style="text-align: right;">3.1e-08</td>
+<td>pass</td>
+</tr>
+<tr>
+<td>Adjoint vs central difference, linearized model</td>
+<td>directional derivative of g_chip (worst of 3 directions)</td>
+<td style="text-align: right;">-0.0119779</td>
+<td style="text-align: right;">-0.0119779</td>
+<td style="text-align: right;">1.6e-07</td>
+<td>pass</td>
+</tr>
+<tr>
+<td>Adjoint vs central difference, linearized model</td>
+<td>directional derivative of g_optic (worst of 3 directions)</td>
+<td style="text-align: right;">0.0003993534</td>
+<td style="text-align: right;">0.0003993542</td>
+<td style="text-align: right;">2.2e-06</td>
+<td>pass</td>
+</tr>
+</tbody>
+</table></div>
+<p>In the Taylor test (right panel of the figure in Section 3) the central-difference error falls as \(\epsilon^2\) (fitted slope 2.07) down to about \(10^{-8}\), then rises again from round-off. The largest error in the table belongs to a direction along which the derivative is small, so round-off in the difference is relatively larger.</p>
+<p><strong>Cost.</strong> For the 384 variables, one adjoint evaluation (Newton solve plus both constraint gradients) takes 0.039 s. Forward differences need 385 Newton solves and take 14.9 s, 380 times longer. The two gradients agree to 2e-06 of the largest component.</p>
+<h2>5. Optimization</h2>
+<p><strong>Setup.</strong> SLSQP from SciPy [6] with the adjoint gradients. The variables are already in \([0,1]\). The objective is the mass divided by the mass of the full 8 mm plate (1296 g), and the constraints are written as \(g_c\le0\) with \(g_c\) of order one. The start is the uniform 2 mm plate.</p>
+<p><strong>Convergence.</strong> 89 iterations and 6 s. Both constraints start violated and are satisfied within the first few iterations; the rest of the run removes mass.</p>
+<p><img alt="Optimization history" src="assets/fig_history.png" /></p>
+<p><strong>Other starts.</strong> Four starts reach the same design:</p>
+<div class="table"><table>
+<thead>
+<tr>
+<th>Start</th>
+<th style="text-align: right;">Iterations</th>
+<th style="text-align: right;">Mass (g)</th>
+<th style="text-align: right;">Module peak (°C)</th>
+<th style="text-align: right;">Transceiver peak (°C)</th>
+<th style="text-align: right;">Largest thickness difference from the first run (mm)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>uniform 2 mm</td>
+<td style="text-align: right;">89</td>
+<td style="text-align: right;">231.56</td>
+<td style="text-align: right;">84.72</td>
+<td style="text-align: right;">61.88</td>
+<td style="text-align: right;">0.000</td>
+</tr>
+<tr>
+<td>uniform 1 mm (lower bound)</td>
+<td style="text-align: right;">72</td>
+<td style="text-align: right;">231.56</td>
+<td style="text-align: right;">84.72</td>
+<td style="text-align: right;">61.88</td>
+<td style="text-align: right;">0.014</td>
+</tr>
+<tr>
+<td>uniform 8 mm (upper bound)</td>
+<td style="text-align: right;">100</td>
+<td style="text-align: right;">231.56</td>
+<td style="text-align: right;">84.72</td>
+<td style="text-align: right;">61.88</td>
+<td style="text-align: right;">0.015</td>
+</tr>
+<tr>
+<td>random</td>
+<td style="text-align: right;">169</td>
+<td style="text-align: right;">231.56</td>
+<td style="text-align: right;">84.72</td>
+<td style="text-align: right;">61.88</td>
+<td style="text-align: right;">0.031</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Active constraints and multipliers.</strong> Both temperature constraints are active. At the optimum 274 tiles sit at 1 mm, 2 at 8 mm, and 108 are in between. With SLSQP's multipliers \(\mu_{\text{module}}=0.442\) and \(\mu_{\text{transceiver}}=0.099\), the stationarity residual \(\nabla\hat m+\sum_c\mu_c\nabla g_c\) on the free tiles is at most 0.17% of \(\partial\hat m/\partial x_j\). On the tiles at the lower bound it is positive and on those at the upper bound it is negative, as the KKT conditions require.</p>
+<p>A multiplier is the rate at which the optimal mass falls when its limit is relaxed. Since \(g_c=\theta/\theta_c^{\max}-1\),</p>
+<p>\[\frac{dm^\star}{dT_c^{\max}}=-\frac{\mu_c\,m_{\text{full}}}{\theta_c^{\max}} .\]</p>
+<ul>
+<li><strong>Power module:</strong> 12.7 g per kelvin. Re-optimizing with the limit raised by 0.2 K gives 12.3 g/K.</li>
+<li><strong>Transceiver:</strong> 5.8 g per kelvin (re-optimized: 5.2 g/K).</li>
+</ul>
+<p>In engineering terms, each kelvin of margin given up at the module is worth 5.5% of the plate's mass. The transceiver limit is active but cheap: removing it altogether saves only 3.0 g, and the transceiver would then sit at 62.8 °C.</p>
+<p><strong>What the optimizer did.</strong> It left most of the plate at 1 mm and built a mound under the module that tapers outwards, which spreads the 20 W over enough surface to bring the module down to its limit. The mound reaches further towards the middle of the plate, where there is more surface to feed, than towards the near edge. It stops well short of the transceiver, which gets a small pad of its own to spread its 1.5 W.</p>
+<p><strong>Why no uniform plate works.</strong> A thicker plate spreads the module's heat further and flattens the temperature field towards its mean of about 68 °C. That is below the module limit but above the transceiver limit, so the transceiver gets warmer as the plate gets thicker.</p>
+<h2>6. Nonlinear component (N2)</h2>
+<p>The nonlinear part of the model is the radiation term \(\varepsilon\sigma(T^4-T_\infty^4)\) in the state equation. It carries 11.3 of the 21.5 W. To see what the nonlinearity does to the design, I repeated the optimization with the usual linearization about ambient,</p>
+<p>\[\varepsilon\sigma\,(T^4-T_\infty^4)\approx h_r\,(T-T_\infty),\qquad h_r=4\,\varepsilon\sigma T_\infty^3=5.71\ \text{W/(m}^2\text{K)},\]</p>
+<p>which makes the state equation linear, and then checked that design with the nonlinear model.</p>
+<div class="table"><table>
+<thead>
+<tr>
+<th>Radiation model used by the optimizer</th>
+<th style="text-align: right;">Optimal mass (g)</th>
+<th style="text-align: right;">Peaks in that model (°C), module / transceiver</th>
+<th style="text-align: right;">Peaks of that design in the nonlinear model (°C)</th>
+<th style="text-align: right;">Margin to the limits (K)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Nonlinear, \(\varepsilon\sigma(T^4-T_\infty^4)\)</td>
+<td style="text-align: right;">231.6</td>
+<td style="text-align: right;">84.7 / 61.9</td>
+<td style="text-align: right;">84.7 / 61.9</td>
+<td style="text-align: right;">0.3 / 0.1</td>
+</tr>
+<tr>
+<td>Linearized, \(h_r(T-T_\infty)\)</td>
+<td style="text-align: right;">339.9</td>
+<td style="text-align: right;">84.7 / 61.8</td>
+<td style="text-align: right;">82.2 / 60.1</td>
+<td style="text-align: right;">2.8 / 1.9</td>
+</tr>
+</tbody>
+</table></div>
+<p><img alt="Optimized plates for the two radiation models" src="assets/fig_designs.png" /></p>
+<p>The linearized model asks for 108 g more aluminium (47%) and a different layout: a wider mound at the module, a 1 mm gap between the module and the transceiver, and a second mound at the transceiver that extends towards the far edge. In the nonlinear model that plate is cooler than it needs to be at both components.</p>
+<p>The reason is that the true radiation coefficient \(\varepsilon\sigma(T^2+T_\infty^2)(T+T_\infty)\) grows with temperature. On the optimized plate it is 6.19 W/(m²·K) at the coldest point and 7.06 at the module, against 5.71 in the linearization. The linear model therefore underestimates the heat leaving everywhere, and most where the plate is hottest. A linear model also fixes the mean plate temperature: integrating the equation over the plate gives \(\bar\theta=P/\big((h+h_r)A\big)\) for every thickness field, 70.6 °C here, where the nonlinear solution has 68.4 °C. The linearized optimizer has to hold the transceiver that much further below the mean, and it can do so only by isolating the transceiver from the module and giving it its own fin area.</p>
+<p>Without radiation at all the problem has no solution. Convection alone fixes the mean plate temperature at \(T_\infty+P/(hA)=99.7\) °C for every design, above both limits. The full 8 mm plate has the module at 105.9 °C.</p>
+<h2>7. Results</h2>
+<p>All values are from the nonlinear model.</p>
+<div class="table"><table>
+<thead>
+<tr>
+<th></th>
+<th style="text-align: right;">Initial, uniform 2 mm</th>
+<th style="text-align: right;">Uniform 2.80 mm</th>
+<th style="text-align: right;">Optimized</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Mass, objective (g)</td>
+<td style="text-align: right;">324.0</td>
+<td style="text-align: right;">454.0</td>
+<td style="text-align: right;">231.6</td>
+</tr>
+<tr>
+<td>Power module peak (°C), limit 85</td>
+<td style="text-align: right;">90.9 ✗ FAIL</td>
+<td style="text-align: right;">84.9 ✓ pass</td>
+<td style="text-align: right;">84.7 ✓ pass</td>
+</tr>
+<tr>
+<td>Constraint \(g\), power module (feasible if at most 0)</td>
+<td style="text-align: right;">0.1316</td>
+<td style="text-align: right;">0.0000</td>
+<td style="text-align: right;">0.0000</td>
+</tr>
+<tr>
+<td>Transceiver peak (°C), limit 62</td>
+<td style="text-align: right;">63.1 ✗ FAIL</td>
+<td style="text-align: right;">64.4 ✗ FAIL</td>
+<td style="text-align: right;">61.9 ✓ pass</td>
+</tr>
+<tr>
+<td>Constraint \(g\), transceiver (feasible if at most 0)</td>
+<td style="text-align: right;">0.0593</td>
+<td style="text-align: right;">0.1150</td>
+<td style="text-align: right;">0.0000</td>
+</tr>
+<tr>
+<td>Mean plate temperature (°C)</td>
+<td style="text-align: right;">68.5</td>
+<td style="text-align: right;">68.5</td>
+<td style="text-align: right;">68.4</td>
+</tr>
+<tr>
+<td>Heat leaving by radiation (W)</td>
+<td style="text-align: right;">11.3</td>
+<td style="text-align: right;">11.2</td>
+<td style="text-align: right;">11.3</td>
+</tr>
+</tbody>
+</table></div>
+<p>The optimized plate is 29% lighter than the starting plate and 49% lighter than the uniform plate that satisfies the module constraint alone. Its true peaks are 0.28 K and 0.12 K below the limits; that small margin is the KS overestimate.</p>
+<h2>8. Bonus</h2>
+<p><strong>Fully nonlinear (N2).</strong> The nonlinear component is a nonlinear state equation solved by Newton's method, with gradients from implicit differentiation at the converged state. It is checked against two radiation benchmarks with closed-form answers (V5 a and b), the Newton convergence order (V5 c), and finite differences (V6).</p>
+<h2>9. Limitations and AI use</h2>
+<p><strong>Limitations.</strong></p>
+<ul>
+<li>The convection coefficient is constant and the same over the whole face. A correlation \(h\propto\theta^{1/4}\) would add a second nonlinearity of the same kind and could be handled by the same Newton solver and adjoint.</li>
+<li>The plate has no fins. The design question here is how to spread heat in a wall of fixed area, not how to add area.</li>
+<li>Thickness changes in steps between tiles, with no limit on the step size.</li>
+<li>The thin-plate model ignores spreading through the thickness under the module, where the plate is 8 mm thick and the module is 25 mm wide. I did not check this against a 3D model.</li>
+<li>One steady load case at the hottest ambient. Material properties are constants.</li>
+<li>The module and transceiver limits rest on assumed device data (Section 1).</li>
+</ul>
+<p><strong>AI use.</strong> I worked with a coding agent (Claude). It proposed the structure and the numbers in Section 1, wrote the solver, the adjoint, the verification and optimization scripts, and the three.js viewer, and drafted the text of this page. The exact answers in the ladder are the closed forms written out in Section 3, so that they can be checked by hand independently of the code. Every row of that table is recomputed whenever the results are regenerated.</p>
+<p>One bug the checks caught: in the first uniform-plate runs for the mesh check, Newton's method stalled on the 8 mm plate at a relative residual of \(1.5\times10^{-11}\), just above the tolerance of \(10^{-11}\), and reported failure. The linear terms of the residual were being applied to the absolute temperature (about 340 K) instead of the rise, so round-off in \(\mathbf K_c\mathbf T\) set a floor on the residual. The residual now uses \(\theta=T-T_\infty\), which is exact because \(\mathbf K_c\mathbf 1=\mathbf 0\) (check V4), and the tolerance is \(10^{-10}\). Newton's last residual is now about 1e-13.</p>
+<h2>Reproduction</h2>
+<p>Python 3.13.18, NumPy 2.5.3, SciPy 1.18.1. From the repository root:</p>
+<pre><code class="language-bash">python -m pip install -r projects/04_engineering_design/requirements.txt
+python projects/04_engineering_design/src/run_all.py     # about 1 min
+</code></pre>
+<p>This one command runs the verification ladder and all optimizations, writes <a href="https://github.com/Liukz233/MAE598-Design-Optimization/blob/main/projects/04_engineering_design/site/assets/results.json"><code>site/assets/results.json</code></a>, draws the figures, and rebuilds this page from <a href="https://github.com/Liukz233/MAE598-Design-Optimization/blob/main/projects/04_engineering_design/report/report.template.md"><code>report/report.template.md</code></a>. Every number in the text, the tables and the 3D viewer is read from <code>results.json</code>.</p>
+<h2>References</h2>
+<ol>
+<li>MAE 598/494, <a href="https://designinformaticslab.github.io/DesignOptimization2025/project4.html">Project 4: PDE-Constrained Design Optimization</a>.</li>
+<li>T. L. Bergman, A. S. Lavine, F. P. Incropera, and D. P. DeWitt, <em>Fundamentals of Heat and Mass Transfer</em>, 7th ed., Wiley, 2011.</li>
+<li>ASM Aerospace Specification Metals, <a href="https://asm.matweb.com/search/SpecificMaterial.asp?bassnum=MA6061T6">Aluminum 6061-T6 data sheet</a>.</li>
+<li>NVIDIA, <a href="https://docs.nvidia.com/networking/display/MMA2L20ARSpec/Specifications">MMA2L20-AR 25GbE SFP28 LR transceiver specifications</a>: operating case temperature 0 to 70 °C, power consumption at most 1.5 W.</li>
+<li>G. Kreisselmeier and R. Steinhauser, "Systematic control design by optimizing a vector performance index," <em>IFAC Proceedings Volumes</em>, 12(7), 313–318, 1979.</li>
+<li>D. Kraft, "A software package for sequential quadratic programming," DFVLR-FB 88-28, 1988; implemented in <code>scipy.optimize.minimize(method="SLSQP")</code>.</li>
+</ol>
+</main>
+<script type="module" src="assets/viewer.js"></script>
+</body></html>

@@ -1,45 +1,45 @@
 # Project 4 - PDE-Constrained Design Optimization
 
 - **Weight:** 10%
-- **Structure:** compliant gripper (density-based layout, geometrically nonlinear analysis)
-- **Status:** In progress; final site due Nov 25, 2026
-- **Report website (primary deliverable):** <https://liukz233.github.io/MAE598-Design-Optimization/>, built from [`site/`](site/) by [`.github/workflows/pages.yml`](../../.github/workflows/pages.yml)
+- **Structure:** heat sink for a power chip (thin heat-spreader plate), with surface radiation as the nonlinear component (N2)
+- **Report website (primary deliverable):** <https://liukz233.github.io/MAE598-Design-Optimization/>, served from [`site/`](site/) by [`.github/workflows/pages.yml`](../../.github/workflows/pages.yml)
+- **Same report as Markdown:** [`report/report.md`](report/report.md) (static figures only; the 3D comparison needs the website)
 - **Official brief:** [Project 4: PDE-Constrained Design Optimization](https://designinformaticslab.github.io/DesignOptimization2025/project4.html)
 
-## Submission rule
+## Where each requirement is addressed
 
-Use the public Markdown report above as the grading entry point unless the official brief for this project states otherwise. A PDF may be exported for presentation or archival use, but it is not the primary submission artifact.
-
-## Assignment requirements
-
-When the brief is released, copy every required section and grading item into this table before writing.
-
-| Requirement from official brief | Where addressed in report | Status |
+| Requirement from the brief | Report section | Code |
 |---|---|---|
-| Add requirement | Add section link | Pending |
+| Structure, variables, objective, constraints, limits | 1 | [`src/problem.py`](src/problem.py) |
+| Own FE analysis; governing PDE, mesh, assumptions | 2 | [`src/plate.py`](src/plate.py) |
+| Verification ladder (exact, convergence, balance, invariance, nonlinear, gradients) | 3 | [`src/verify.py`](src/verify.py) |
+| Adjoint derivation, gradient checks, Taylor test, cost vs finite differences | 4 | `adjoint_gradient` in [`src/plate.py`](src/plate.py) |
+| Optimizer, scaling, starts, convergence, active constraints and multipliers | 5 | [`src/run_all.py`](src/run_all.py) |
+| Nonlinear component, design with and without it | 6 | [`src/run_all.py`](src/run_all.py) |
+| Results table, initial vs optimized | 7 | |
+| Bonus: fully nonlinear (N2) | 8 | |
+| Limitations and AI-use statement | 9 | |
+| 3D comparison (eight viewer requirements) | top of the site | [`site/assets/viewer.js`](site/assets/viewer.js) |
+| One command regenerates every number | Reproduction | [`src/run_all.py`](src/run_all.py) |
 
-## Workspace
+## Files
 
 | Path | Purpose |
 |---|---|
-| `report/report.md` | Single public-facing report and primary grading artifact |
-| `notebooks/` | Exploration and executable demonstrations |
-| `src/` | Reusable implementation |
-| `figures/` | Report-ready figures |
-| `results/` | Small, curated numerical outputs |
+| `src/plate.py` | Finite element model: element matrices, Newton solve, adjoint gradient |
+| `src/problem.py` | Design problem: parameters, tiles, loads, KS constraints |
+| `src/verify.py` | Verification ladder V1 to V6 |
+| `src/run_all.py` | Runs everything and writes `site/assets/results.json` |
+| `src/make_site.py` | Figures, `report/report.md` and `site/index.html` from `results.json` |
+| `report/report.template.md` | Report text with placeholders for the numbers |
+| `site/` | Published site: `index.html`, `assets/viewer.js`, `assets/results.json`, figures |
+
+`report/report.md` and `site/index.html` are generated. Edit `report/report.template.md` and rerun.
 
 ## Reproduction
 
 ~~~bash
-# Add the exact command or notebook execution order here.
+python -m pip install -r projects/04_engineering_design/requirements.txt
+python projects/04_engineering_design/src/run_all.py      # about 2 min; everything
+python projects/04_engineering_design/src/make_site.py    # only rebuild figures and pages from results.json
 ~~~
-
-## Deliverables
-
-- [ ] Official brief linked and requirements transcribed
-- [ ] Public Markdown report follows the official section requirements
-- [ ] Mathematical notation and units are defined
-- [ ] Code or notebook runs from a clean environment
-- [ ] Results are interpreted and traceable to committed code
-- [ ] GitHub equations, figures, tables, and links render correctly
-- [ ] Repository and report URLs work while signed out
