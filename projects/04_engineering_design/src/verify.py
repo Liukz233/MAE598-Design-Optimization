@@ -145,6 +145,17 @@ def v5_nonlinear():
     order = np.log(r[3] / r[2]) / np.log(r[2] / r[1])
     rows.append(row("V5", "Newton's method on the design model", "observed convergence order", order, 2.0,
                     "", tol=0.15))
+
+    # (d) the residual is the gradient of a potential (the energy form used in Projects 2 and 3)
+    p = hs.plate
+    rng = np.random.default_rng(5)
+    t_el = hs.thickness(rng.uniform(0, 1, hs.n))[hs.tile_of_element]
+    T = p.T_inf + rng.uniform(5, 50, p.nn)
+    v = rng.normal(size=p.nn)
+    step = 1e-4
+    dPi = (p.potential(T + step * v, t_el, hs.Q) - p.potential(T - step * v, t_el, hs.Q)) / (2 * step)
+    rows.append(row("V5", "Residual as the gradient of the potential", "directional derivative of the potential",
+                    p.residual(T, t_el, hs.Q) @ v, dPi, "", tol=1e-6))
     return rows, {"residuals": r.tolist(), "order": float(order)}
 
 
@@ -180,6 +191,17 @@ def v6_gradients(x=None):
             rows.append(row("V6", f"Adjoint vs central difference, {label}",
                             f"directional derivative of g_{name} (worst of 3 directions)",
                             best_ad, best_fd, "", tol=1e-5))
+    # self-adjoint special case (Project 1): for thermal compliance C = Q.theta in the linear
+    # model the adjoint is -theta, so dC/dt_e = -k theta_e^T k0 theta_e without an adjoint solve
+    hs = HeatSpreader(radiation="linearized")
+    p = hs.plate
+    T, info = hs.solve(rng.uniform(0, 1, hs.n))
+    general = p.adjoint_gradient(T, info["lu"], hs.Q)
+    theta = (T - p.T_inf)[p.edof]
+    closed = -p.k * np.einsum("ei,ij,ej->e", theta, p.k0, theta)
+    rows.append(row("V6", "Self-adjoint case, Project 1 formula",
+                    "largest difference in the compliance sensitivity",
+                    np.abs(general - closed).max(), 0.0, "", tol=1e-9, scale=np.abs(closed).max()))
     slope = np.polyfit(np.log(steps[:3]), np.log(sweeps["full/chip"][:3]), 1)[0]
     return rows, {"steps": steps.tolist(), "errors": sweeps, "slope": float(slope)}
 

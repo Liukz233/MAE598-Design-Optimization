@@ -17,8 +17,9 @@
 | Optimizer, scaling, starts, convergence, active constraints and multipliers | 5 | [`src/run_all.py`](src/run_all.py) |
 | Nonlinear component, design with and without it | 6 | [`src/run_all.py`](src/run_all.py) |
 | Results table, initial vs optimized | 7 | |
-| Bonus: fully nonlinear (N2) | 8 | |
-| Limitations and AI-use statement | 9 | |
+| Relation to Projects 1 to 3 (self-adjoint case, conditioning, energy form) | 8 | `earlier_projects` in [`src/run_all.py`](src/run_all.py) |
+| Bonus: fully nonlinear (N2) | 9 | |
+| Limitations and AI-use statement | 10 | |
 | 3D comparison (eight viewer requirements) | top of the site | [`site/assets/viewer.js`](site/assets/viewer.js) |
 | One command regenerates every number | Reproduction | [`src/run_all.py`](src/run_all.py) |
 

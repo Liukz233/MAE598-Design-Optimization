@@ -10,9 +10,10 @@ A sealed, fanless electronics enclosure has no vents, so its aluminium lid is al
 
 - The optimized plate weighs 231.6 g and meets both limits. The uniform 2 mm starting plate weighs 324 g and violates both, with the module at 90.9 °C.
 - No uniform plate is feasible. Thickening the plate cools the module but warms the transceiver. The thinnest uniform plate that satisfies the module constraint is 2.80 mm (454 g), and it leaves the transceiver at 64.4 °C.
-- Radiation carries 52% of the heat, so the state equation is nonlinear in temperature. It is solved by Newton's method in 4 iterations, and the gradients of both constraints come from the adjoint at the converged state in 0.039 s, against 15 s for finite differences.
+- Radiation carries 52% of the heat, so the state equation is nonlinear in temperature. It is solved by Newton's method in 4 iterations, and the gradients of both constraints come from the adjoint at the converged state in 0.038 s, against 14 s for finite differences.
 - The nonlinearity changes the design. If radiation is linearized about ambient, the optimizer needs 340 g, 47% more. Checked with the nonlinear model, that plate is 2.8 K and 1.9 K below the two limits, so the extra metal is not needed.
-- The solver passes all 15 checks of the verification ladder (Section 3).
+- The solver passes all 17 checks of the verification ladder (Section 3).
+- Projects 1 to 3 studied the linear equilibrium solve inside a topology-optimization loop. This project keeps the loop and changes what was simple there: the state equation is nonlinear and the constraints are not self-adjoint. Section 8 checks each earlier result against this problem.
 
 ![Optimized thickness and temperature](../site/assets/fig_designs.png)
 
@@ -127,12 +128,14 @@ All checks run from [`verify.py`](https://github.com/Liukz233/MAE598-Design-Opti
 | V5 | Uniformly heated radiating plate | plate temperature (K) | 367.3934 | 367.3934 | 2.0e-15 | pass |
 | V5 | Radiating fin, energy first integral | base heat flow (W/m) | 249.9998 | 250 | 8.4e-07 | pass |
 | V5 | Newton's method on the design model | observed convergence order | 1.975162 | 2 | 1.2e-02 | pass |
+| V5 | Residual as the gradient of the potential | directional derivative of the potential | 343.1944 | 343.1944 | 9.0e-10 | pass |
 | V6 | Adjoint vs central difference, nonlinear model | directional derivative of g_chip (worst of 3 directions) | 0.01760666 | 0.01760666 | 3.2e-08 | pass |
 | V6 | Adjoint vs central difference, nonlinear model | directional derivative of g_optic (worst of 3 directions) | 0.02925955 | 0.02925955 | 3.1e-08 | pass |
 | V6 | Adjoint vs central difference, linearized model | directional derivative of g_chip (worst of 3 directions) | -0.0119779 | -0.0119779 | 1.6e-07 | pass |
 | V6 | Adjoint vs central difference, linearized model | directional derivative of g_optic (worst of 3 directions) | 0.0003993534 | 0.0003993542 | 2.2e-06 | pass |
+| V6 | Self-adjoint case, Project 1 formula | largest difference in the compliance sensitivity | 1.196099e-09 | 0 | 1.6e-12 | pass |
 
-For the two invariance rows the exact value is zero, and the error is the difference divided by the largest temperature rise.
+Where the exact value is zero, the error is the difference divided by the largest value of the quantity.
 
 Where the exact answers come from:
 
@@ -150,9 +153,9 @@ Where the exact answers come from:
 q'^2=2\,k\,t\,\varepsilon\sigma\left[\frac{T_0^5-T_L^5}{5}-T_\infty^4\,(T_0-T_L)\right].
 ```
 
-I apply $q'$, read $T_0$ and $T_L$ from the solver, and compare the right-hand side with the applied value. (c) Newton's residuals on the design model are 1.1e-02, 5.3e-05, 1.4e-09, 1.4e-13, an observed order of 1.98.
+I apply $q'$, read $T_0$ and $T_L$ from the solver, and compare the right-hand side with the applied value. (c) Newton's residuals on the design model are 1.1e-02, 5.3e-05, 1.4e-09, 1.4e-13, an observed order of 1.98. (d) The residual is the gradient of the potential $\Pi$ given in Section 8, so a central difference of $\Pi$ along a random direction must equal $\mathbf R^{\mathsf T}\mathbf v$. This checks the radiation term of the residual independently of the tangent.
 
-**V6, gradients.** See Section 4.
+**V6, gradients.** See Section 4. The last row is the self-adjoint special case discussed in Section 8.
 
 ![Verification plots](../site/assets/fig_verification.png)
 
@@ -182,7 +185,7 @@ The nonlinear solve does not need to be differentiated step by step. By the impl
 
 In the Taylor test (right panel of the figure in Section 3) the central-difference error falls as $\epsilon^2$ (fitted slope 2.07) down to about $10^{-8}$, then rises again from round-off. The largest error in the table belongs to a direction along which the derivative is small, so round-off in the difference is relatively larger.
 
-**Cost.** For the 384 variables, one adjoint evaluation (Newton solve plus both constraint gradients) takes 0.039 s. Forward differences need 385 Newton solves and take 14.9 s, 380 times longer. The two gradients agree to 2e-06 of the largest component.
+**Cost.** For the 384 variables, one adjoint evaluation (Newton solve plus both constraint gradients) takes 0.038 s. Forward differences need 385 Newton solves and take 14.4 s, 380 times longer. The two gradients agree to 2e-06 of the largest component.
 
 ## 5. Optimization
 
@@ -257,11 +260,38 @@ All values are from the nonlinear model.
 
 The optimized plate is 29% lighter than the starting plate and 49% lighter than the uniform plate that satisfies the module constraint alone. Its true peaks are 0.28 K and 0.12 K below the limits; that small margin is the KS overestimate.
 
-## 8. Bonus
+## 8. Relation to Projects 1 to 3
+
+Projects 1 to 3 [7] looked at one thing from three sides: the equilibrium solve inside the topology-optimization loop of the MBB beam. Project 4 keeps that loop (design, state solve, sensitivities, update) on a different physical problem and changes the two things that were simple there. The code is new, but each earlier result has a counterpart here, and I checked each one.
+
+**Project 1, SIMP and OC.** The plate is parameterized like the beam: $\mathbf K_c=\sum_e t_e\,k\,\mathbf k_0$ is the SIMP stiffness with exponent $p=1$. Intermediate thickness is physical, so no penalization is needed. Project 1 minimized compliance, which is self-adjoint: the adjoint is $-\mathbf u$, the sensitivity $-p\rho_e^{p-1}\mathbf u_e^{\mathsf T}\mathbf k_0\mathbf u_e$ needs no extra solve, and it is negative for every element, which is what the OC update relies on. The adjoint code of Section 4 reproduces this: for the thermal compliance $\mathbf Q^{\mathsf T}\boldsymbol\theta$ of the linear model it returns $-k\,\boldsymbol\theta_e^{\mathsf T}\mathbf k_0\boldsymbol\theta_e$ to round-off (last row of the ladder). The temperature constraints are different. At the optimum, thickening any of the 384 tiles cools the module, but for the transceiver only 176 tiles cool it and the other 208 warm it. Each constraint needs its own adjoint solve, and with gradients of mixed sign and two constraints OC does not apply, so I used SLSQP.
+
+**Project 2, conditioning of the state solve.** Project 2 found two sources of ill-conditioning in $K$: mesh refinement, which Jacobi scaling does not remove, and the stiffness contrast between solid and void, which it does. I repeated the measurement on the tangent matrix $\mathbf K_T$ at the converged temperature, with CG run to a relative residual of $10^{-6}$ as in Project 2.
+
+| Matrix | Unknowns | $\kappa$ | $\kappa$ after Jacobi scaling | CG iterations | Jacobi-PCG iterations |
+|---|---:|---:|---:|---:|---:|
+| Plate, uniform 2 mm, 12.5 mm elements | 425 | 701 | 638 | 61 | 52 |
+| Plate, uniform 2 mm, 6.25 mm elements | 1,617 | 2,679 | 2,549 | 118 | 105 |
+| Plate, optimized, 6.25 mm elements | 1,617 | 9,533 | 1,895 | 248 | 108 |
+| Project 2 beam, optimized layout, $E_{\min}=10^{-9}$ | 9,880 | 1.2e+12 | 1,131,810 | not converged in 5,000 | 1,201 |
+
+Both mechanisms are present. Halving the element size multiplies $\kappa$ by 3.8 on the uniform plate, and Jacobi scaling barely changes it. The 8:1 thickness contrast of the optimized plate raises $\kappa$ by a factor of 3.6, and Jacobi scaling removes that: preconditioned CG needs 108 iterations, against 105 on the uniform plate. The magnitudes are far smaller than in Project 2, for two reasons. The contrast is 8:1 instead of $10^9$:1. And every node loses heat to ambient, so the smallest eigenvalue cannot fall below about $(h+h_r)$ times the area of one element, 0.00048 W/K against the computed 0.00050. The beam had no such term, and its softest mode was a smooth deformation of the whole structure. This is why a sparse direct solve, and plain CG, are both adequate here.
+
+**Project 3, energy-trained network.** Projects 2 and 3 wrote the equilibrium solve as the minimization of a potential energy, and Project 3 trained a network on that energy. The state equation here has the same form. It is the stationarity condition of
+
+```math
+\Pi(\mathbf T)=\tfrac12\boldsymbol\theta^{\mathsf T}(\mathbf K_c+h\mathbf M)\boldsymbol\theta
++\varepsilon\sigma\!\int_\Omega\Big(\tfrac15T_h^5-T_\infty^4\,T_h\Big)dA-\mathbf Q^{\mathsf T}\boldsymbol\theta ,
+\qquad \nabla\Pi=\mathbf R ,
+```
+
+Its gradient is the residual (check V5 d) and its Hessian $\mathbf K_T$ is positive definite, so it is convex. Newton's method minimizes $\Pi$ with the exact Hessian and converges in four steps. Project 3 had only gradients of its energy and needed L-BFGS to approximate the curvature. One state solve here takes 36 ms, so I did not use a surrogate. Project 3 reached the same conclusion for the 2D beam, where the direct solve was about 3,534 times cheaper per design than training the network.
+
+## 9. Bonus
 
 **Fully nonlinear (N2).** The nonlinear component is a nonlinear state equation solved by Newton's method, with gradients from implicit differentiation at the converged state. It is checked against two radiation benchmarks with closed-form answers (V5 a and b), the Newton convergence order (V5 c), and finite differences (V6).
 
-## 9. Limitations and AI use
+## 10. Limitations and AI use
 
 **Limitations.**
 
@@ -295,3 +325,4 @@ This one command runs the verification ladder and all optimizations, writes [`si
 4. NVIDIA, [MMA2L20-AR 25GbE SFP28 LR transceiver specifications](https://docs.nvidia.com/networking/display/MMA2L20ARSpec/Specifications): operating case temperature 0 to 70 °C, power consumption at most 1.5 W.
 5. G. Kreisselmeier and R. Steinhauser, "Systematic control design by optimizing a vector performance index," *IFAC Proceedings Volumes*, 12(7), 313–318, 1979.
 6. D. Kraft, "A software package for sequential quadratic programming," DFVLR-FB 88-28, 1988; implemented in `scipy.optimize.minimize(method="SLSQP")`.
+7. K. Liu, Project 1, 2 and 3 reports: [SIMP–OC for the MBB beam](https://github.com/Liukz233/MAE598-Design-Optimization/blob/main/projects/01_problem_formulation/report/report.md), [ill-conditioning of the equilibrium solve](https://github.com/Liukz233/MAE598-Design-Optimization/blob/main/projects/02_gradient_descent/report/report.md), [energy-trained PINN](https://github.com/Liukz233/MAE598-Design-Optimization/blob/main/projects/03_neural_operator/report/report.md).

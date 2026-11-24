@@ -123,7 +123,7 @@ def tables(R):
                f"{r['computed']:.7g}", f"{r['exact']:.7g}", f"{r['rel_error']:.1e}",
                "pass" if r["pass"] else "FAIL"]
               for r in R["verification"]["ladder"]]
-    grad = [r[1:] for r in ladder if r[0] == "V6"]
+    grad = [r[1:] for r in ladder if r[1].startswith("Adjoint vs")]
     designs = [("Initial, uniform 2 mm", R["designs"]["initial"]["metrics"]),
                (f"Uniform {R['uniform_chip_feasible']['thickness_mm']:.2f} mm", R["uniform_chip_feasible"]),
                ("Optimized", R["designs"]["optimized"]["metrics"])]
@@ -147,12 +147,30 @@ def tables(R):
                        f"{m['own_model']['T_chip_C']:.1f} / {m['own_model']['T_optic_C']:.1f}",
                        f"{m['nonlinear_model']['T_chip_C']:.1f} / {m['nonlinear_model']['T_optic_C']:.1f}",
                        f"{m['nonlinear_model']['margin_chip_K']:.1f} / {m['nonlinear_model']['margin_optic_K']:.1f}"])
+    E = R["earlier"]
+    big = lambda v: f"{v:,.0f}" if v < 1e7 else f"{v:.1e}"
+    cond = [[name, f"{c['unknowns']:,}", big(c["kappa"]), big(c["kappa_jacobi"]), c["cg_iterations"],
+             c["pcg_iterations"]]
+            for name, c in ((f"Plate, uniform 2 mm, {E['conditioning']['uniform_coarse']['element_mm']:g} mm elements",
+                             E["conditioning"]["uniform_coarse"]),
+                            (f"Plate, uniform 2 mm, {E['conditioning']['uniform']['element_mm']:g} mm elements",
+                             E["conditioning"]["uniform"]),
+                            (f"Plate, optimized, {E['conditioning']['optimized']['element_mm']:g} mm elements",
+                             E["conditioning"]["optimized"]))]
+    p2 = E["project2"]
+    cond.append([r"Project 2 beam, optimized layout, $E_{\min}=10^{-9}$", f"{p2['unknowns']:,}", big(p2["kappa"]),
+                 big(p2["kappa_jacobi"]),
+                 p2["cg_iterations"] if p2["cg_converged"] else f"not converged in {p2['cg_iterations']:,}",
+                 f"{p2['pcg_iterations']:,}"])
     r3 = ["---", "---:", "---:", "---:"]
     return {
         "ladder": md_table(["", "Test", "Quantity", "Solver", "Exact", "Rel. error", ""], ladder,
                            ["---", "---", "---", "---:", "---:", "---:", "---"]),
         "gradients": md_table(["Check", "Quantity", "Adjoint", "Central difference", "Rel. error", ""], grad,
                               ["---", "---", "---:", "---:", "---:", "---"]),
+        "conditioning": md_table(["Matrix", "Unknowns", "$\\kappa$", "$\\kappa$ after Jacobi scaling",
+                                  "CG iterations", "Jacobi-PCG iterations"], cond,
+                                 ["---", "---:", "---:", "---:", "---:", "---:"]),
         "results": md_table([""] + [n for n, _ in designs], results, r3),
         "starts": md_table(["Start", "Iterations", "Mass (g)", "Module peak (°C)", "Transceiver peak (°C)",
                             "Largest thickness difference from the first run (mm)"], starts,

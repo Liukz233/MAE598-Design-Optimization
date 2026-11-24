@@ -10,6 +10,7 @@ the site comes from results.json.
 from __future__ import annotations
 
 import copy
+import csv
 import json
 import platform
 import sys
@@ -19,6 +20,8 @@ from pathlib import Path
 import numpy as np
 import scipy
 from scipy.optimize import minimize
+from scipy.sparse import diags
+from scipy.sparse.linalg import cg
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -27,6 +30,7 @@ from problem import CELSIUS, CONFIG, HeatSpreader  # noqa: E402
 from verify import run_ladder  # noqa: E402
 
 SITE = Path(__file__).resolve().parents[1] / "site"
+PROJECTS = Path(__file__).resolve().parents[2]
 T_START = 2.0e-3  # uniform starting thickness, m
 
 
@@ -152,6 +156,67 @@ def gradient_cost():
     return {"adjoint_seconds": t_adjoint, "fd_seconds": t_fd, "speedup": t_fd / t_adjoint,
             "n_variables": hs.n, "n_dof": hs.plate.nn, "fd_solves": hs.n + 1,
             "max_difference": diff}
+
+
+def conditioning(x, refine=None):
+    """Condition number of the converged tangent and CG iteration counts, as in Project 2."""
+    hs = HeatSpreader(refine=refine)
+    p = hs.plate
+    T, _ = hs.solve(x)
+    KT = p.tangent(T, hs.thickness(x)[hs.tile_of_element])
+    A = KT.toarray()
+    d = A.diagonal()
+    lam = np.linalg.eigvalsh(A)
+    lam_jacobi = np.linalg.eigvalsh(A / np.sqrt(np.outer(d, d)))
+    out = {"unknowns": p.nn, "element_mm": 1e3 * p.dx, "lambda_min": float(lam[0]),
+           "lambda_max": float(lam[-1]), "kappa": float(lam[-1] / lam[0]),
+           "kappa_jacobi": float(lam_jacobi[-1] / lam_jacobi[0])}
+    for name, M in (("cg_iterations", None), ("pcg_iterations", diags(1 / d))):
+        count = [0]
+        cg(KT, hs.Q, rtol=1e-6, atol=0.0, M=M, maxiter=20000, callback=lambda _: count.__setitem__(0, count[0] + 1))
+        out[name] = count[0]
+    # every node loses heat to ambient, which bounds the smallest eigenvalue from below
+    h_r = p.eps * SIGMA * (T**2 + p.T_inf**2) * (T + p.T_inf)
+    out["lambda_min_estimate"] = float((p.h + h_r.min()) * p.area)
+    return out
+
+
+def earlier_projects(x_opt):
+    """Quantities that tie this project to Projects 1 to 3."""
+    hs = HeatSpreader()
+    e = hs.evaluate(x_opt)
+    signs = {c: {"lower": int(np.sum(e["dg_" + c] < 0)), "raise": int(np.sum(e["dg_" + c] > 0))}
+             for c in ("chip", "optic")}
+    reps = 20
+    t0 = time.perf_counter()
+    for _ in range(reps):
+        hs.T_last = None
+        hs.solve(x_opt)
+    solve_ms = 1e3 * (time.perf_counter() - t0) / reps
+
+    with open(PROJECTS / "02_gradient_descent" / "results" / "conditioning.csv") as f:
+        p2 = {row["case"]: row for row in csv.DictReader(f)}["optimized_120x40_Emin_1e-09"]
+    with open(PROJECTS / "02_gradient_descent" / "results" / "solvers.csv") as f:
+        p2_solvers = {(row["case"], row["method"]): row for row in csv.DictReader(f)}
+    p2_cg = p2_solvers[("optimized_120x40_Emin_1e-09", "CG")]
+    p2_pcg = p2_solvers[("optimized_120x40_Emin_1e-09", "Jacobi-PCG")]
+    p3 = json.loads((PROJECTS / "03_neural_operator" / "results" / "summary.json").read_text())["cost"]
+    x_start = x_uniform(T_START)
+    uniform, coarse = conditioning(x_start), conditioning(x_start, refine=1)
+    optimized = conditioning(x_opt)
+    return {
+        "gradient_signs": signs, "solve_ms": solve_ms,
+        "conditioning": {"uniform": uniform, "uniform_coarse": coarse, "optimized": optimized,
+                         "mesh_growth": uniform["kappa"] / coarse["kappa"],
+                         "contrast_growth": optimized["kappa"] / uniform["kappa"],
+                         "thickness_contrast": CONFIG["t_max"] / CONFIG["t_min"]},
+        "project2": {"unknowns": int(p2["free_dofs"]), "kappa": float(p2["kappa"]),
+                     "kappa_jacobi": float(p2["jacobi_kappa"]), "emin": float(p2["emin"]),
+                     "cg_iterations": int(p2_cg["iterations"]), "cg_converged": p2_cg["converged"] == "True",
+                     "pcg_iterations": int(p2_pcg["iterations"])},
+        "project3": {"fe_solve_seconds": p3["fe_solve_seconds_median"],
+                     "cost_ratio": p3["per_design_cost_ratio_lbfgs"]},
+    }
 
 
 def main():
@@ -298,6 +363,7 @@ def main():
         "history": hist, "frames": frames,
         "verification": {"ladder": ladder, **extra},
         "gradient_cost": cost,
+        "earlier": earlier_projects(x_opt),
     }
     results["verification"]["all_pass"] = all(r["pass"] for r in ladder)
     results["verification"]["n_checks"] = len(ladder)

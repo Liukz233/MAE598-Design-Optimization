@@ -120,19 +120,31 @@ class Plate:
             R = R + self.radiation(T)[0]
         return R
 
+    def tangent(self, T, t_el, Kc=None):
+        """K_T = dR/dT, symmetric positive definite."""
+        Kc = self.conduction(t_el) if Kc is None else Kc
+        KT = Kc + self.h * self.M
+        return (KT + self.radiation(T)[1] if self.eps > 0 else KT).tocsc()
+
+    def potential(self, T, t_el, Q):
+        """Convex potential whose gradient is the residual R(T; t)."""
+        theta = T - self.T_inf
+        Tg = T[self.edof] @ self.Ng.T
+        radiation = self.eps * SIGMA * np.sum((Tg**5 / 5 - self.T_inf**4 * Tg) * self.wg)
+        return (0.5 * theta @ (self.conduction(t_el) @ theta) + 0.5 * self.h * theta @ (self.M @ theta)
+                + radiation - Q @ theta)
+
     def solve(self, t_el, Q, T0=None, tol=1e-10, maxit=30):
         """Newton's method on R(T; t) = 0. Returns T and a dict with the
         factorized tangent at the solution and the residual history."""
         Kc = self.conduction(t_el)
-        Klin = Kc + self.h * self.M
         T = np.full(self.nn, self.T_inf) if T0 is None else T0.copy()
         scale = max(np.linalg.norm(Q), 1e-30)
         history = []
         for _ in range(maxit):
             R = self.residual(T, t_el, Q, Kc)
-            KT = Klin + self.radiation(T)[1] if self.eps > 0 else Klin
             history.append(np.linalg.norm(R) / scale)
-            lu = splu(KT.tocsc())
+            lu = splu(self.tangent(T, t_el, Kc))
             if history[-1] < tol:
                 return T, {"lu": lu, "history": history}
             T = T - lu.solve(R)
