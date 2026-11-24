@@ -1,226 +1,208 @@
-"""Verification ladder for the plate solver and its adjoint gradients.
+"""Verification ladder for the beam solver and its adjoint gradients.
 
 Each test returns rows of (id, test, quantity, computed, exact, relative error).
-The exact values are closed-form results derived in Section 4 of the report.
+The exact values are closed-form results written out in Section 3 of the report,
+or values published in the Project 1 report.
 """
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import numpy as np
-from scipy.sparse.linalg import eigsh
 
-from plate import SIGMA, Plate
-from problem import CONFIG, HeatSpreader
+from beam import Beam, half_mbb_load_and_supports
+from problem import CONFIG, BeamDesign
 
-K, T_INF = CONFIG["k"], CONFIG["T_inf"]
+E, NU, FY, N = CONFIG["E"], CONFIG["nu"], CONFIG["f_y"], CONFIG["n"]
+P1 = Path(__file__).resolve().parents[2] / "01_problem_formulation" / "results"
 
 
-def row(vid, test, quantity, computed, exact, unit="", tol=1e-2, scale=None):
+def row(vid, test, quantity, computed, exact, tol=1e-2, scale=None):
     """One ladder entry. The error is relative to |exact|, or to `scale` when exact is 0."""
     err = abs(computed - exact) / (abs(exact) if scale is None else scale)
     return {"id": vid, "test": test, "quantity": quantity, "computed": float(computed),
-            "exact": float(exact), "rel_error": float(err), "unit": unit, "pass": bool(err < tol)}
+            "exact": float(exact), "rel_error": float(err), "pass": bool(err < tol)}
 
 
-def edge_load(p: Plate, q_line: float) -> np.ndarray:
-    """Heat flow q_line (W/m) entering through the edge x = 0."""
-    Q = np.zeros(p.nn)
-    left = np.flatnonzero(p.xy[:, 0] < 1e-12)
-    Q[left] = q_line * p.dy
-    Q[left[[0, -1]]] *= 0.5
-    return Q
+def edge_traction(b: Beam, traction) -> np.ndarray:
+    """Nodal forces for a horizontal traction (N/m, function of y) on the right edge."""
+    F = np.zeros(b.ndof)
+    nodes = np.flatnonzero(np.abs(b.xy[:, 0] - b.nelx * b.a) < 1e-12)
+    nodes = nodes[np.argsort(b.xy[nodes, 1])]
+    p = traction(b.xy[nodes, 1])
+    for j in range(nodes.size - 1):            # exact for a traction that is linear in y
+        F[2 * nodes[j]] += b.a * (2 * p[j] + p[j + 1]) / 6
+        F[2 * nodes[j + 1]] += b.a * (p[j] + 2 * p[j + 1]) / 6
+    return F
 
 
-def v1_linear_fin():
-    """Straight fin heated at x = 0, insulated tip, convection on one face."""
-    L, W, t, h, q_line = 0.20, 0.02, 2.0e-3, 10.0, 250.0
-    p = Plate(L, W, 160, 4, K, h, 0.0, T_INF)
-    T, _ = p.solve(np.full(p.ne, t), edge_load(p, q_line))
-    m = np.sqrt(h / (K * t))
-    base = q_line / (K * t * m * np.tanh(m * L))
-    tip = q_line / (K * t * m * np.sinh(m * L))
-    return [row("V1", "Linear fin, exact solution", "base temperature rise", T[0] - T_INF, base, "K"),
-            row("V1", "Linear fin, exact solution", "tip temperature rise", T[p.nx] - T_INF, tip, "K")]
-
-
-def v2_manufactured():
-    """Manufactured solution of the full nonlinear equation with varying thickness."""
-    Lx, Ly, t0, theta0 = 0.30, 0.20, 3.0e-3, 40.0
-    h, eps = CONFIG["h"], CONFIG["eps"]
-
-    def theta(x, y):
-        return theta0 * np.cos(np.pi * x / Lx) * np.cos(np.pi * y / Ly)
-
-    def source(x, y):
-        t = t0 * (1 + x / Lx)
-        th = theta(x, y)
-        dth_dx = -theta0 * np.pi / Lx * np.sin(np.pi * x / Lx) * np.cos(np.pi * y / Ly)
-        conduction = K * t * np.pi**2 * (1 / Lx**2 + 1 / Ly**2) * th - K * (t0 / Lx) * dth_dx
-        return conduction + h * th + eps * SIGMA * ((T_INF + th) ** 4 - T_INF**4)
-
-    sizes, errors = [], []
-    for n in (6, 12, 24, 48, 96):
-        p = Plate(Lx, Ly, n, 2 * n // 3, K, h, eps, T_INF)
-        t_el = t0 * (1 + p.centers[:, 0] / Lx)
-        T, _ = p.solve(t_el, p.load_function(source))
-        e = T - T_INF - theta(p.xy[:, 0], p.xy[:, 1])
-        errors.append(np.sqrt(e @ (p.M @ e) / (Lx * Ly)))  # L2 norm of the nodal error
-        sizes.append(p.dx)
-    slope = np.polyfit(np.log(sizes[1:]), np.log(errors[1:]), 1)[0]
-    rows = [row("V2", "Manufactured solution, mesh refinement", "L2 error convergence rate",
-                slope, 2.0, "", tol=0.05)]
-    return rows, {"h_mm": [1e3 * s for s in sizes], "l2_error_K": errors, "slope": float(slope)}
-
-
-def v3_heat_balance():
-    """Heat leaving the surface equals heat generated, on the design model."""
+def v1_patch():
+    """Uniform tension: bilinear elements must reproduce it exactly, for both material laws."""
+    L, H, t, s = 0.30, 0.10, 0.008, 0.9 * FY
     rows = []
-    hs = HeatSpreader()
-    for label, x in (("uniform 2 mm", np.full(hs.n, 1 / 7)), ("random thickness", None)):
-        if x is None:
-            x = np.random.default_rng(3).uniform(0, 1, hs.n)
-        hs.T_last = None
-        T, _ = hs.solve(x)
-        rows.append(row("V3", "Global heat balance", f"heat leaving the plate, {label}",
-                        hs.plate.heat_out(T), hs.Q.sum(), "W", tol=1e-8))
+    for nonlinear, label in ((False, "linear material"), (True, "Ramberg-Osgood material")):
+        b = Beam(12, 4, L / 12, E, NU, FY, N, nonlinear)
+        u, _ = b.solve(np.full(b.ne, t), edge_traction(b, lambda y: np.full_like(y, s * t)))
+        strain = s / E + (0.002 * (s / FY) ** N if nonlinear else 0.0)
+        right_top = 2 * (b.nely + 1) * b.nelx                 # x displacement, top-right node
+        rows.append(row("V5" if nonlinear else "V1", f"Uniform tension, {label}",
+                        "elongation (m)", u[right_top], strain * L, tol=1e-8))
+        if not nonlinear:
+            rows.append(row("V1", f"Uniform tension, {label}", "lateral contraction (m)",
+                            u[right_top + 1] - u[right_top + 1 + 2 * b.nely], -NU * strain * H, tol=1e-8))
+    return rows
+
+
+def v2_bending():
+    """Pure bending, an exact solution of plane-stress elasticity: curvature M/(EI)."""
+    L, H, t, M = 0.60, 0.20, 0.008, 2.0e3
+    inertia = t * H**3 / 12
+    exact = M * L**2 / (2 * E * inertia)                      # rise of the mid-depth line over L
+    sizes, errors, last = [], [], None
+    for nely in (2, 4, 8, 16, 32):
+        b = Beam(3 * nely, nely, H / nely, E, NU, nonlinear=False)
+        # sigma_xx = -M (y - H/2) / I, applied as a line traction sigma_xx * t
+        u, _ = b.solve(np.full(b.ne, t), edge_traction(b, lambda y: -M * (y - H / 2) / inertia * t))
+        mid_left, mid_right = nely // 2, (nely + 1) * b.nelx + nely // 2
+        last = abs(u[2 * mid_right + 1] - u[2 * mid_left + 1])
+        sizes.append(b.a)
+        errors.append(abs(last - exact) / exact)
+    slope = np.polyfit(np.log(sizes[1:]), np.log(errors[1:]), 1)[0]
+    return [row("V1", "Pure bending, finest mesh", "deflection of the mid-depth line (m)", last, exact, tol=1e-2),
+            row("V2", "Pure bending, mesh refinement", "convergence rate of the deflection error", slope, 2.0,
+                tol=0.05)], {"h_mm": [1e3 * s for s in sizes], "error": errors, "slope": float(slope)}
+
+
+def v3_reaction():
+    """With a real roller instead of the support pad, the roller must carry half the load."""
+    rows = []
+    for nonlinear, label in ((False, "linear"), (True, "nonlinear")):
+        d = BeamDesign(nonlinear=nonlinear)
+        b = d.beam
+        F = d.F.copy()
+        F[1::2] = np.minimum(F[1::2], 0.0)                    # keep the load pad, drop the support pad
+        t_el = d.thickness(np.random.default_rng(3).uniform(0, 1, d.n))[d.tile_of_element]
+        u, _ = b.solve(t_el, F)
+        rows.append(row("V3", f"Global force balance, {label} material", "reaction at the roller (N)",
+                        b.internal(u, t_el)[b.ndof - 1], 0.5 * CONFIG["P"], tol=1e-8))
     return rows
 
 
 def v4_invariance():
-    """Zero modes of the conduction matrix and invariance under mirroring and rotation."""
-    hs = HeatSpreader()
-    x = np.random.default_rng(4).uniform(0, 1, hs.n)
-    p = hs.plate
-    t_el = hs.thickness(x)[hs.tile_of_element]
-    lam = np.sort(np.linalg.eigvalsh(p.conduction(t_el).toarray()))
-    n_zero = int(np.sum(lam < 1e-9 * lam[-1]))
-    hs.T_last = None
-    T, _ = hs.solve(x)
+    """Rigid-body modes, mirror symmetry, and agreement with Project 1."""
+    b = Beam(6, 2, 0.01, E, NU, nonlinear=False)
+    lam = np.linalg.eigvalsh(b.tangent(np.zeros(b.ndof), np.full(b.ne, 0.005)).toarray())
+    rows = [row("V4", "Unsupported stiffness matrix", "number of zero eigenvalues (rigid-body modes)",
+                int(np.sum(lam < 1e-9 * lam[-1])), 3, tol=1e-12)]
 
-    # mirror the plate in x: thickness and load are flipped, the field must flip with them
-    nx, ny = p.nx, p.ny
-    T_m, _ = p.solve(t_el.reshape(ny, nx)[:, ::-1].ravel(),
-                     hs.Q.reshape(ny + 1, nx + 1)[:, ::-1].ravel())
-    mirror = np.abs(T_m.reshape(ny + 1, nx + 1)[:, ::-1].ravel() - T).max()
+    # mirror the beam about mid-depth: thickness and loads flip, the stress field must flip with them
+    d = BeamDesign()
+    b = d.beam
+    x = np.random.default_rng(4).uniform(0, 1, d.n)
+    ref = d.responses(d.solve(x)[0])["utilization"].reshape(d.tx, d.ty)
+    node = np.arange(b.ndof // 2)
+    mirrored = (node // (b.nely + 1)) * (b.nely + 1) + (b.nely - node % (b.nely + 1))
+    F = np.zeros(b.ndof)
+    F[2 * mirrored + 1] = -d.F[1::2]
+    t_tile = d.thickness(x).reshape(d.tx, d.ty)[:, ::-1].ravel()
+    u, _ = b.solve(t_tile[d.tile_of_element], F)
+    flipped = d.responses(u)["utilization"].reshape(d.tx, d.ty)[:, ::-1]
+    rows.append(row("V4", "Mirror the beam about mid-depth", "largest change in stress utilization",
+                    np.abs(flipped - ref).max(), 0.0, tol=1e-9, scale=ref.max()))
 
-    # rotate by 90 degrees: swap the x and y axes of the mesh
-    pr = Plate(p.Ly, p.Lx, ny, nx, p.k, p.h, p.eps, p.T_inf)
-    T_r, _ = pr.solve(t_el.reshape(ny, nx).T.ravel(), hs.Q.reshape(ny + 1, nx + 1).T.ravel())
-    rotate = np.abs(T_r.reshape(nx + 1, ny + 1).T.ravel() - T).max()
-    rise = (T - p.T_inf).max()
-    return [row("V4", "Zero modes of the conduction matrix", "number of zero eigenvalues",
-                n_zero, 1, "", tol=1e-12),
-            row("V4", "Mirror the plate in x", "largest temperature difference",
-                mirror, 0.0, "K", tol=1e-9, scale=rise),
-            row("V4", "Rotate the plate by 90 degrees", "largest temperature difference",
-                rotate, 0.0, "K", tol=1e-9, scale=rise)]
+    # Project 1: same mesh, supports and unit load; modulus field of the final SIMP design
+    rho = np.loadtxt(P1 / "final_density.csv", delimiter=",").T.ravel()
+    published = json.loads((P1 / "summary.json").read_text())["final_compliance"]
+    b = Beam(120, 40, 1.0, 1.0, 0.3, nonlinear=False)
+    F = half_mbb_load_and_supports(120, 40)[0]
+    u, _ = b.solve(1e-9 + rho**3 * (1 - 1e-9), F)
+    rows.append(row("V4", "Project 1 final design, Project 1 load", "compliance (Project 1 units)",
+                    F @ u, published, tol=1e-8))
+    return rows
 
 
 def v5_nonlinear():
-    """Radiation benchmarks with closed-form answers, and the Newton convergence order."""
-    eps = CONFIG["eps"]
-    rows = []
-
-    # (a) uniformly heated plate, radiation only: eps*sigma*(T^4 - T_inf^4) = q
-    q = 400.0
-    p = Plate(0.30, 0.20, 12, 8, K, 0.0, eps, T_INF)
-    T, _ = p.solve(np.full(p.ne, 2e-3), p.load_uniform(np.full(p.ne, q)))
-    exact = (T_INF**4 + q / (eps * SIGMA)) ** 0.25
-    rows.append(row("V5", "Uniformly heated radiating plate", "plate temperature", T.mean(), exact, "K",
-                    tol=1e-8))
-
-    # (b) radiating fin, insulated tip. First integral of k t T'' = eps*sigma*(T^4 - T_inf^4):
-    #     q_line^2 = 2 k t eps sigma [ (T0^5 - TL^5)/5 - T_inf^4 (T0 - TL) ]
-    L, W, t, q_line = 0.20, 0.02, 2.0e-3, 250.0
-    p = Plate(L, W, 320, 4, K, 0.0, eps, T_INF)
-    T, info = p.solve(np.full(p.ne, t), edge_load(p, q_line))
-    T0, TL = T[0], T[p.nx]
-    q_from_T = np.sqrt(2 * K * t * eps * SIGMA * ((T0**5 - TL**5) / 5 - T_INF**4 * (T0 - TL)))
-    rows.append(row("V5", "Radiating fin, energy first integral", "base heat flow", q_from_T, q_line, "W/m"))
-
-    # (c) Newton convergence on the design model
-    hs = HeatSpreader()
-    _, info = hs.solve(np.full(hs.n, 1 / 7))
+    """Newton convergence order and the energy form of the state equation."""
+    d = BeamDesign()
+    b = d.beam
+    x = np.full(d.n, 0.2)
+    _, info = d.solve(x)
     r = np.array(info["history"])
-    order = np.log(r[3] / r[2]) / np.log(r[2] / r[1])
-    rows.append(row("V5", "Newton's method on the design model", "observed convergence order", order, 2.0,
-                    "", tol=0.15))
+    q = r[r > 1e-10][-3:]                                     # the last step ends at round-off
+    order = np.log(q[2] / q[1]) / np.log(q[1] / q[0])
+    rows = [row("V5", "Newton's method on the design model", "observed convergence order", order, 2.0, tol=0.2)]
 
-    # (d) the residual is the gradient of a potential (the energy form used in Projects 2 and 3)
-    p = hs.plate
     rng = np.random.default_rng(5)
-    t_el = hs.thickness(rng.uniform(0, 1, hs.n))[hs.tile_of_element]
-    T = p.T_inf + rng.uniform(5, 50, p.nn)
-    v = rng.normal(size=p.nn)
-    step = 1e-4
-    dPi = (p.potential(T + step * v, t_el, hs.Q) - p.potential(T - step * v, t_el, hs.Q)) / (2 * step)
-    rows.append(row("V5", "Residual as the gradient of the potential", "directional derivative of the potential",
-                    p.residual(T, t_el, hs.Q) @ v, dPi, "", tol=1e-6))
+    t_el = d.thickness(rng.uniform(0, 1, d.n))[d.tile_of_element]
+    u = 2e-3 * rng.normal(size=b.ndof)
+    v = rng.normal(size=b.ndof)
+    step = 1e-7
+    dPi = (b.energy(u + step * v, t_el, d.F) - b.energy(u - step * v, t_el, d.F)) / (2 * step)
+    rows.append(row("V5", "Residual as the gradient of the potential energy", "directional derivative (J)",
+                    (b.internal(u, t_el) - d.F) @ v, dPi, tol=1e-6))
     return rows, {"residuals": r.tolist(), "order": float(order)}
 
 
-def v6_gradients(x=None):
+def v6_gradients():
     """Adjoint directional derivatives against central differences (Taylor test)."""
     rows, sweeps = [], {}
     steps = 10.0 ** -np.arange(1, 9)
     rng = np.random.default_rng(6)
-    for model in ("full", "linearized"):
-        hs = HeatSpreader(radiation=model)
-        x0 = rng.uniform(0.1, 0.9, hs.n) if x is None else x
-        base = hs.evaluate(x0)
-        for name in ("chip", "optic"):
+    for nonlinear in (True, False):
+        d = BeamDesign(nonlinear=nonlinear)
+        x0 = rng.uniform(0.2, 0.8, d.n)
+        base = d.evaluate(x0)
+        label = "nonlinear material" if nonlinear else "linear material"
+        for name in d.names:
             worst = (-1.0, None, None)  # (error, adjoint, finite difference)
             for trial in range(3):
-                v = rng.normal(size=hs.n)
+                v = rng.normal(size=d.n)
                 ad = base["dg_" + name] @ v
                 fd = []
                 for s in steps:
-                    hs.T_last = None
-                    gp = hs.evaluate(x0 + s * v, gradients=False)["g_" + name]
-                    hs.T_last = None
-                    gm = hs.evaluate(x0 - s * v, gradients=False)["g_" + name]
+                    d.u_last = None
+                    gp = d.evaluate(x0 + s * v, gradients=False)["g_" + name]
+                    d.u_last = None
+                    gm = d.evaluate(x0 - s * v, gradients=False)["g_" + name]
                     fd.append((gp - gm) / (2 * s))
                 errs = np.abs(np.array(fd) - ad) / abs(ad)
-                if trial == 0:
-                    sweeps[f"{model}/{name}"] = errs.tolist()
+                if trial == 0 and nonlinear:
+                    sweeps[name] = errs.tolist()
                 i = int(np.argmin(errs))
                 if errs[i] > worst[0]:
                     worst = (errs[i], ad, fd[i])
-            best_ad, best_fd = worst[1], worst[2]
-            label = "nonlinear model" if model == "full" else "linearized model"
             rows.append(row("V6", f"Adjoint vs central difference, {label}",
                             f"directional derivative of g_{name} (worst of 3 directions)",
-                            best_ad, best_fd, "", tol=1e-5))
-    # self-adjoint special case (Project 1): for thermal compliance C = Q.theta in the linear
-    # model the adjoint is -theta, so dC/dt_e = -k theta_e^T k0 theta_e without an adjoint solve
-    hs = HeatSpreader(radiation="linearized")
-    p = hs.plate
-    T, info = hs.solve(rng.uniform(0, 1, hs.n))
-    general = p.adjoint_gradient(T, info["lu"], hs.Q)
-    theta = (T - p.T_inf)[p.edof]
-    closed = -p.k * np.einsum("ei,ij,ej->e", theta, p.k0, theta)
-    rows.append(row("V6", "Self-adjoint case, Project 1 formula",
-                    "largest difference in the compliance sensitivity",
-                    np.abs(general - closed).max(), 0.0, "", tol=1e-9, scale=np.abs(closed).max()))
-    slope = np.polyfit(np.log(steps[:3]), np.log(sweeps["full/chip"][:3]), 1)[0]
+                            worst[1], worst[2], tol=1e-5))
+
+    # self-adjoint special case (Project 1): for the compliance F.u of the linear model the
+    # adjoint is -u, so dC/dt_e = -u_e^T k_e u_e without an adjoint solve
+    d = BeamDesign(nonlinear=False)
+    b = d.beam
+    u, info = d.solve(rng.uniform(0, 1, d.n))
+    general = b.adjoint_gradient(u, info["lu"], d.F)
+    closed = -np.einsum("ei,ei->e", u[b.edof], b.element_forces(u)[0])
+    rows.append(row("V6", "Self-adjoint case, Project 1 formula", "largest difference in the compliance sensitivity",
+                    np.abs(general - closed).max(), 0.0, tol=1e-9, scale=np.abs(closed).max()))
+    slope = np.polyfit(np.log(steps[:3]), np.log(sweeps["deflection"][:3]), 1)[0]
     return rows, {"steps": steps.tolist(), "errors": sweeps, "slope": float(slope)}
 
 
 def run_ladder():
-    rows = v1_linear_fin()
-    r2, mms = v2_manufactured()
-    rows += r2 + v3_heat_balance() + v4_invariance()
+    patch = v1_patch()
+    bending, convergence = v2_bending()
     r5, newton = v5_nonlinear()
     r6, taylor = v6_gradients()
-    rows += r5 + r6
-    return rows, {"mms": mms, "newton": newton, "taylor": taylor}
+    rows = ([r for r in patch if r["id"] == "V1"] + bending + v3_reaction() + v4_invariance()
+            + [r for r in patch if r["id"] == "V5"] + r5 + r6)
+    return rows, {"convergence": convergence, "newton": newton, "taylor": taylor}
 
 
 if __name__ == "__main__":
     rows, extra = run_ladder()
     for r in rows:
-        print(f"{r['id']} {'ok ' if r['pass'] else 'FAIL'} {r['test']:<46s} {r['quantity']:<58s} "
+        print(f"{r['id']} {'ok  ' if r['pass'] else 'FAIL'} {r['test']:<50s} {r['quantity']:<60s} "
               f"{r['computed']:.9g}  {r['exact']:.9g}  {r['rel_error']:.2e}")
-    print("MMS", extra["mms"])
-    print("Newton", extra["newton"])
-    print("Taylor slope", extra["taylor"]["slope"], extra["taylor"]["errors"]["full/chip"])
+    print(extra["convergence"], extra["newton"], extra["taylor"]["slope"])

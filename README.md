@@ -32,9 +32,9 @@
 
 ## Project 4 submission
 
-[![Project 4: optimized heat-spreader plates for two radiation models](projects/04_engineering_design/site/assets/fig_designs.png)](https://liukz233.github.io/MAE598-Design-Optimization/)
+[![Project 4: plate thickness of the optimized beams and of the Project 1 layout](projects/04_engineering_design/site/assets/fig_designs.png)](https://liukz233.github.io/MAE598-Design-Optimization/)
 
-**[Open the Project 4 report website](https://liukz233.github.io/MAE598-Design-Optimization/)** — Lightest heat-spreader plate that keeps a power module and a transceiver within their temperature limits: own finite element solver with surface radiation, adjoint gradients, SLSQP, and a live 3D comparison of the initial and optimized plates. The same report as Markdown, without the 3D viewer, is in [`report/report.md`](projects/04_engineering_design/report/report.md).
+**[Open the Project 4 report website](https://liukz233.github.io/MAE598-Design-Optimization/)** — The Project 1 beam as a stainless-steel plate beam: lightest thickness distribution under a deflection limit and an allowable stress, with a nonlinear material law, Newton's method, adjoint gradients on top of the Project 1 code, and a live 3D comparison. The same report as Markdown, without the 3D viewer, is in [`report/report.md`](projects/04_engineering_design/report/report.md).
 
 ## Project index
 
