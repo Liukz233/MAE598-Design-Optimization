@@ -1,21 +1,21 @@
-// 3D comparison of the initial and optimized beams. Everything shown is read
-// from results.json, which run_all.py writes. The analysis covers half the beam;
-// the other half is its mirror image about midspan (x = 0).
+// 3D comparison of the initial and optimized grippers. Everything shown is read
+// from results.json, which run_all.py writes. The analysis covers the upper half
+// of the gripper; the lower half is its mirror image about the centre line y = 0.
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
 const root = document.getElementById("viewer");
 const R = await (await fetch("assets/results.json")).json();
 const C = R.config;
-const nx = C.nx, tx = C.tiles_x, ty = C.tiles_y, rf = C.refine, a = C.element_mm;
-const L = C.half_span_mm, H = C.depth_mm;
-const limits = { stress: C.sigma_allow_MPa, deflection: C.deflection_limit_mm };
+const nx = C.nx, ny = C.ny, a = C.element_mm, T = C.thickness_mm;
+const L = C.length_mm, H = C.half_height_mm;
+const limits = { stroke: C.stroke_max_mm, stress: C.sigma_allow_MPa, volume: C.volume_fraction };
+const SHOWN = 0.05;                                // elements below this density are not drawn
 
 // ---- colour scale: one hue, light to dark -----------------------------------
 const stops = ["#fff5eb", "#fdd0a2", "#fd8d3c", "#d94801", "#7f2704"].map((h) => new THREE.Color(h));
 const rgb = stops.map((c) => { const o = {}; c.getRGB(o, THREE.SRGBColorSpace); return o; });
-const allU = [R.designs.initial, R.designs.optimized, R.designs.linear].flatMap((d) => d.utilization);
-const Umax = Math.max(1.2, Math.ceil(Math.max(...allU) * 10) / 10);
+const Umax = 1.2;
 function colorOf(u) {
   const s = Math.min(Math.max(u / Umax, 0), 1) * (stops.length - 1);
   const i = Math.min(Math.floor(s), stops.length - 2), f = s - i;
@@ -28,14 +28,14 @@ root.innerHTML = `
   <div class="v-controls">
     <label>Right panel
       <select id="v-design">
-        <option value="optimized">Optimized, nonlinear material</option>
-        <option value="linear">Optimized assuming a linear material</option>
+        <option value="optimized">Optimized, large-displacement analysis</option>
+        <option value="linear">Optimized with linear analysis</option>
       </select></label>
-    <button id="v-play" type="button">▶ Play optimization history</button>
-    <label class="v-grow">Iteration <span id="v-iter"></span>
+    <button id="v-play" type="button">▶ Play actuation</button>
+    <label class="v-grow">Actuator force <span id="v-load"></span>%
+      <input id="v-act" type="range" min="0" max="100" step="1" value="100"></label>
+    <label>Optimizer iteration <span id="v-iter"></span>
       <input id="v-frame" type="range" min="0" max="${R.frames.length - 1}" value="${R.frames.length - 1}"></label>
-    <label>Deformation ×<span id="v-slabel">40</span>
-      <input id="v-s" type="range" min="0" max="100" step="5" value="40"></label>
     <button id="v-reset" type="button">Reset view</button>
   </div>
   <div class="v-panels">
@@ -44,9 +44,9 @@ root.innerHTML = `
   </div>
   <div class="v-legend">
     <div class="v-bar-wrap"><div class="v-bar" id="v-bar"></div><div class="v-ticks" id="v-ticks"></div></div>
-    <div class="v-key">Colour: von Mises stress of each tile divided by the allowable ${limits.stress.toFixed(0)} MPa.
-      <b>×</b> marks tiles above the allowable. Dashed line under midspan: the deflection limit, drawn at the same
-      exaggeration as the deformation. Hover or tap a tile to inspect it.</div>
+    <div class="v-key">Colour: von Mises stress of each element at full force, divided by the allowable ${limits.stress.toFixed(1)} MPa.
+      <b>×</b> marks elements above the allowable. The height of each element is its density times the plate thickness.
+      Hover or tap an element to inspect it.</div>
   </div>
   <div class="v-tip" id="v-tip" hidden></div>`;
 const $ = (id) => document.getElementById(id);
@@ -55,60 +55,63 @@ $("v-bar").style.background = `linear-gradient(to right, ${stops.map((c) => "#" 
 $("v-ticks").innerHTML = [[0, "0"], [0.5, "0.5"], [1, "1.0 (allowable)"]].map(([u, label]) =>
   `<span class="v-tick" style="left:${(100 * u) / Umax}%">${label}</span>`).join("");
 
-// ---- geometry of one design -----------------------------------------------------
-const node = (i, j) => i + j * (nx + 1);          // rows from the bottom of the beam
-const tileAt = (t, i, j) => (j < 0 || j >= ty || i >= tx ? 0 : t[Math.max(i, 0) + j * tx]);  // i < 0: mirror image
+// ---- displacement at a given fraction of the actuator force ------------------------
+function displacement(design, fraction) {
+  const path = design.path;
+  if (!path) return null;                           // history frames are drawn undeformed
+  const s = fraction * (path.length - 1), k = Math.min(Math.floor(s), path.length - 2), f = s - k;
+  const mix = (p, q) => p.map((v, i) => v + f * (q[i] - v));
+  return { ux: mix(path[k].ux_mm, path[k + 1].ux_mm), uy: mix(path[k].uy_mm, path[k + 1].uy_mm) };
+}
 
-function build(design, scale) {
-  const t = design.t_mm, U = design.utilization;
-  const ux = design.ux_mm, uy = design.uy_mm;
-  const P = (i, j) => [i * a + scale * ux[node(i, j)], j * a + scale * uy[node(i, j)]];  // deformed node
-  const pos = [], col = [], faceTile = [], edge = [], cross = [];
-  for (const side of [1, -1]) {                   // the half that was analysed, then its mirror image
-    const tri = (p, q, r, z0, z1, z2, c, shade, tile) => {
-      pos.push(side * p[0], p[1], z0, side * q[0], q[1], z1, side * r[0], r[1], z2);
+// ---- geometry of one design -----------------------------------------------------
+const node = (i, j) => i + j * (nx + 1);            // rows from the centre line upwards
+const rhoAt = (rho, i, j) => (i < 0 || i >= nx || j >= ny ? 0 : rho[i + Math.max(j, 0) * nx]);  // j < 0: mirror image
+const heightOf = (r) => (r < SHOWN ? 0 : r * T);
+
+function build(design, fraction) {
+  const rho = design.rho, U = design.utilization, d = displacement(design, fraction);
+  const P = (i, j) => [i * a + (d ? d.ux[node(i, j)] : 0), j * a + (d ? d.uy[node(i, j)] : 0)];
+  const pos = [], col = [], faceElement = [], edge = [], cross = [];
+  for (const side of [1, -1]) {                     // the half that was analysed, then its mirror image
+    const tri = (p, q, r, z0, z1, z2, c, shade, e) => {
+      pos.push(p[0], side * p[1], z0, q[0], side * q[1], z1, r[0], side * r[1], z2);
       for (let k = 0; k < 3; k++) col.push(c[0] * shade, c[1] * shade, c[2] * shade);
-      faceTile.push(side * (tile + 1));
+      faceElement.push(side * (e + 1));
     };
-    for (let j = 0; j < ty; j++) for (let i = 0; i < tx; i++) {
-      const tile = i + j * tx, z = t[tile] / 2, c = colorOf(U[tile]);
-      // front and back faces: four triangles per element around its centre (bilinear value there)
-      for (let ej = j * rf; ej < (j + 1) * rf; ej++) for (let ei = i * rf; ei < (i + 1) * rf; ei++) {
-        const q = [P(ei, ej), P(ei + 1, ej), P(ei + 1, ej + 1), P(ei, ej + 1)];
-        const m = [(q[0][0] + q[1][0] + q[2][0] + q[3][0]) / 4, (q[0][1] + q[1][1] + q[2][1] + q[3][1]) / 4];
-        for (let k = 0; k < 4; k++) for (const zz of [z, -z]) tri(q[k], q[(k + 1) % 4], m, zz, zz, zz, c, 1, tile);
-      }
-      // walls where this tile is thicker than its neighbour, or on the outside of the beam
-      const sides = [[i - 1, j, i * rf, j * rf, 0, 1, 0.8], [i + 1, j, (i + 1) * rf, j * rf, 0, 1, 0.8],
-                     [i, j - 1, i * rf, j * rf, 1, 0, 0.66], [i, j + 1, i * rf, (j + 1) * rf, 1, 0, 0.66]];
-      for (const [ni, nj, i0, j0, di, dj, shade] of sides) {
-        const zn = tileAt(t, ni, nj) / 2;
+    for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+      const e = i + j * nx, z = heightOf(rho[e]) / 2;
+      if (z === 0) continue;
+      const c = colorOf(U ? U[e] : 0);
+      const q = [P(i, j), P(i + 1, j), P(i + 1, j + 1), P(i, j + 1)];
+      const m = [(q[0][0] + q[1][0] + q[2][0] + q[3][0]) / 4, (q[0][1] + q[1][1] + q[2][1] + q[3][1]) / 4];
+      // front and back faces: four triangles around the centre point of the bilinear element
+      for (let k = 0; k < 4; k++) for (const zz of [z, -z]) tri(q[k], q[(k + 1) % 4], m, zz, zz, zz, c, 1, e);
+      // walls where this element stands above its neighbour
+      const sides = [[i, j - 1, 0, 1, 0.66], [i + 1, j, 1, 2, 0.8], [i, j + 1, 2, 3, 0.66], [i - 1, j, 3, 0, 0.8]];
+      for (const [ni, nj, k0, k1, shade] of sides) {
+        const zn = heightOf(rhoAt(rho, ni, nj)) / 2;
         if (z <= zn + 1e-9) continue;
-        for (let s = 0; s < rf; s++) {
-          const p = P(i0 + di * s, j0 + dj * s), q = P(i0 + di * (s + 1), j0 + dj * (s + 1));
-          for (const [zl, zh] of zn > 0 ? [[zn, z], [-z, -zn]] : [[-z, z]]) {
-            tri(p, q, q, zl, zl, zh, c, shade, tile);
-            tri(p, q, p, zl, zh, zh, c, shade, tile);
-          }
-          edge.push(side * p[0], p[1], z, side * q[0], q[1], z);
+        for (const [zl, zh] of zn > 0 ? [[zn, z], [-z, -zn]] : [[-z, z]]) {
+          tri(q[k0], q[k1], q[k1], zl, zl, zh, c, shade, e);
+          tri(q[k0], q[k1], q[k0], zl, zh, zh, c, shade, e);
         }
+        if (zn === 0) edge.push(q[k0][0], side * q[k0][1], z, q[k1][0], side * q[k1][1], z);
       }
-      if (U[tile] > 1) {                          // over the allowable: a cross that does not rely on colour
-        const p = P(i * rf, j * rf), q = P((i + 1) * rf, (j + 1) * rf), r = P((i + 1) * rf, j * rf), s = P(i * rf, (j + 1) * rf);
-        const k = 0.25, zc = z + 0.4, mix = (u, v) => [u[0] + k * (v[0] - u[0]), u[1] + k * (v[1] - u[1])];
-        for (const [u, v] of [[mix(p, q), mix(q, p)], [mix(r, s), mix(s, r)]]) cross.push(side * u[0], u[1], zc, side * v[0], v[1], zc);
+      if (U && U[e] > 1) {                          // over the allowable: a cross that does not rely on colour
+        const zc = z + 0.15, k = 0.2, mix = (u, v) => [u[0] + k * (v[0] - u[0]), u[1] + k * (v[1] - u[1])];
+        for (const [u, v] of [[mix(q[0], q[2]), mix(q[2], q[0])], [mix(q[1], q[3]), mix(q[3], q[1])]])
+          cross.push(u[0], side * u[1], zc, v[0], side * v[1], zc);
       }
     }
   }
-  const zl = C.t_max_mm / 2 + 1;                  // in front of the plate, so the beam does not hide it
-  const limitLine = [-120, -scale * limits.deflection, zl, 120, -scale * limits.deflection, zl];
-  return { pos, col, faceTile, edge, cross, limitLine };
+  return { pos, col, faceElement, edge, cross };
 }
 
 // ---- one renderer per panel, one shared camera ----------------------------------
-const camera = new THREE.PerspectiveCamera(30, 1.6, 10, 20000);
-const target = new THREE.Vector3(0, H / 2 - 30, 0);
-const home = new THREE.Vector3(430, 340, 1480);
+const camera = new THREE.PerspectiveCamera(30, 1.4, 1, 5000);
+const target = new THREE.Vector3(L / 2, 0, 0);
+const home = new THREE.Vector3(L / 2 + 27, -54, 232);
 
 function makeLines(material) {
   const obj = new THREE.LineSegments(new THREE.BufferGeometry(), material);
@@ -116,14 +119,18 @@ function makeLines(material) {
   return obj;
 }
 function fixtures(scene) {
-  // load at midspan and the two supports, drawn at their undeformed positions
-  scene.add(new THREE.ArrowHelper(new THREE.Vector3(0, -1, 0), new THREE.Vector3(0, H + 95, 0), 85, 0x1c4fd6, 30, 18));
-  const mat = new THREE.MeshBasicMaterial({ color: 0x555555 });
-  for (const x of [-(L - C.pad_mm / 2), L - C.pad_mm / 2]) {
-    const cone = new THREE.Mesh(new THREE.ConeGeometry(18, 30, 4), mat);
-    cone.position.set(x, -17, 0);
-    scene.add(cone);
+  // actuator force on the centre line, the two clamps, and the object between the jaws
+  scene.add(new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(-22, 0, 0), 20, 0x1c4fd6, 7, 5));
+  const grey = new THREE.MeshBasicMaterial({ color: 0x555555 });
+  for (const s of [1, -1]) {
+    const clamp = new THREE.Mesh(new THREE.BoxGeometry(3, C.support_height_mm, T + 2), grey);
+    clamp.position.set(-1.6, s * (H - C.support_height_mm / 2), 0);
+    scene.add(clamp);
   }
+  const object = new THREE.Mesh(new THREE.BoxGeometry(C.gap_length_mm * 0.5, 2 * C.gap_half_height_mm - 0.4, T * 0.6),
+    new THREE.MeshBasicMaterial({ color: 0x9aa7b4, transparent: true, opacity: 0.45 }));
+  object.position.set(L - C.gap_length_mm * 0.3, 0, 0);
+  scene.add(object);
 }
 const panels = [0, 1].map((k) => {
   const host = $(`v-host-${k}`);
@@ -134,67 +141,67 @@ const panels = [0, 1].map((k) => {
   scene.background = new THREE.Color(0xf6f8fa);
   const mesh = new THREE.Mesh(new THREE.BufferGeometry(),
     new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide }));
-  const edges = makeLines(new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.35 }));
+  const edges = makeLines(new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.45 }));
   const cross = makeLines(new THREE.LineBasicMaterial({ color: 0x000000 }));
-  const limit = makeLines(new THREE.LineDashedMaterial({ color: 0x111111, dashSize: 8, gapSize: 5 }));
   const pick = makeLines(new THREE.LineBasicMaterial({ color: 0x0b5fff }));
   pick.visible = false;
-  scene.add(mesh, edges, cross, limit, pick);
+  scene.add(mesh, edges, cross, pick);
   fixtures(scene);
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enablePan = false;
   controls.target.copy(target);
   controls.addEventListener("change", render);
-  return { host, renderer, scene, mesh, edges, cross, limit, pick, controls, design: null, faceTile: [] };
+  return { host, renderer, scene, mesh, edges, cross, pick, controls, design: null, faceElement: [] };
 });
 
 function render() {
   for (const p of panels) p.renderer.render(p.scene, camera);
 }
 function resize() {
-  const w = panels[0].host.clientWidth, h = Math.round(Math.min(Math.max(w * 0.6, 220), 420));
+  const w = panels[0].host.clientWidth, h = Math.round(Math.min(Math.max(w * 0.75, 240), 430));
   for (const p of panels) p.renderer.setSize(w, h);
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
   render();
 }
 function resetView() {
-  // move back on narrow panels so that the whole span stays in view
-  camera.position.copy(home).sub(target).multiplyScalar(Math.max(1, 1.8 / camera.aspect)).add(target);
+  // move back on narrow panels so that the whole gripper stays in view
+  camera.position.copy(home).sub(target).multiplyScalar(Math.max(1, 1.3 / camera.aspect)).add(target);
   for (const p of panels) p.controls.update();
   render();
 }
 
 // ---- showing a design -------------------------------------------------------------
-let scale = 40;
+let fraction = 1;
 const setLines = (obj, array) =>
   obj.geometry.setAttribute("position", new THREE.Float32BufferAttribute(array, 3));
 
 function show(k, design, title) {
-  const p = panels[k], g = build(design, scale), m = design.metrics;
+  const p = panels[k], g = build(design, fraction), m = design.metrics;
   p.design = design;
-  p.faceTile = g.faceTile;
+  p.faceElement = g.faceElement;
   p.mesh.geometry.dispose();
   p.mesh.geometry = new THREE.BufferGeometry();
   p.mesh.geometry.setAttribute("position", new THREE.Float32BufferAttribute(g.pos, 3));
-  const lin = new Float32Array(g.col.length);     // colours are given in sRGB; three.js works in linear RGB
+  const lin = new Float32Array(g.col.length);       // colours are given in sRGB; three.js works in linear RGB
   for (let i = 0; i < lin.length; i++) {
     const c = g.col[i];
     lin[i] = c < 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
   }
   p.mesh.geometry.setAttribute("color", new THREE.BufferAttribute(lin, 3));
   setLines(p.edges, g.edge); setLines(p.cross, g.cross);
-  setLines(p.limit, g.limitLine); p.limit.computeLineDistances();
   p.pick.visible = false;
   $(`v-title-${k}`).textContent = title;
   const row = (name, value, unit, limit, digits) => {
-    const ok = value <= limit * (1 + 1e-6);
+    const ok = value <= limit * (1 + 1e-3);
     return `<tr class="${ok ? "ok" : "bad"}"><td>${name}</td><td>${value.toFixed(digits)} ${unit}</td>
       <td>limit ${limit.toFixed(digits)} ${unit}</td><td>${ok ? "✓ pass" : "✗ FAIL"}</td></tr>`;
   };
-  $(`v-metrics-${k}`).innerHTML = `<table><tr><td>Mass (objective)</td><td>${m.mass_kg.toFixed(2)} kg</td><td></td><td></td></tr>
-    ${row("Midspan deflection", m.deflection_mm, "mm", limits.deflection, 2)}
-    ${row("Peak tile stress", m.stress_MPa, "MPa", limits.stress, 0)}</table>`;
+  $(`v-metrics-${k}`).innerHTML = `<table>
+    <tr><td>Jaw closing (objective)</td><td>${m.closing_mm.toFixed(2)} mm</td><td>per jaw, at full force</td><td></td></tr>
+    ${row("Actuator stroke", m.stroke_mm, "mm", limits.stroke, 2)}
+    ${row("Peak stress", m.stress_MPa, "MPa", limits.stress, 1)}
+    ${row("Material used", 100 * m.volume_fraction, "%", 100 * limits.volume, 1)}</table>`;
 }
 
 const lastFrame = R.frames.length - 1;
@@ -202,7 +209,7 @@ let frame = lastFrame, timer = null;
 function showRight() {
   if (frame < lastFrame) {
     const f = R.frames[frame];
-    show(1, f, `Iteration ${f.iteration} of ${R.frames[lastFrame].iteration}`);
+    show(1, f, `Iteration ${f.iteration} of ${R.frames[lastFrame].iteration}, drawn undeformed`);
   } else {
     const d = R.designs[$("v-design").value];
     show(1, d, d.label);
@@ -213,35 +220,39 @@ function showRight() {
 function showAll() {
   show(0, R.designs.initial, R.designs.initial.label);
   showRight();
+  $("v-load").textContent = Math.round(100 * fraction);
 }
 
 $("v-design").addEventListener("change", () => { stop(); frame = lastFrame; $("v-frame").value = frame; showRight(); });
 $("v-frame").addEventListener("input", (e) => { stop(); $("v-design").value = "optimized"; frame = +e.target.value; showRight(); });
-$("v-s").addEventListener("input", (e) => { scale = +e.target.value; $("v-slabel").textContent = scale; showAll(); });
+$("v-act").addEventListener("input", (e) => { stop(); fraction = +e.target.value / 100; showAll(); });
 $("v-reset").addEventListener("click", resetView);
 function stop() {
   if (timer) clearInterval(timer);
   timer = null;
-  $("v-play").textContent = "▶ Play optimization history";
+  $("v-play").textContent = "▶ Play actuation";
 }
 $("v-play").addEventListener("click", () => {
   if (timer) return stop();
-  $("v-design").value = "optimized";
-  frame = 0;
+  frame = lastFrame; $("v-frame").value = frame;
+  let t = 0;
   $("v-play").textContent = "■ Stop";
-  timer = setInterval(() => {
-    $("v-frame").value = frame;
-    showRight();
-    if (frame >= lastFrame) stop(); else frame += 1;
-  }, 180);
+  timer = setInterval(() => {                       // force up to 100% and back, twice
+    t += 1;
+    fraction = 0.5 - 0.5 * Math.cos((t / 40) * Math.PI);
+    $("v-act").value = Math.round(100 * fraction);
+    showAll();
+    if (t >= 160) { fraction = 1; $("v-act").value = 100; showAll(); stop(); }
+  }, 60);
 });
 
 // ---- inspection on hover or tap ----------------------------------------------------
 const ray = new THREE.Raycaster(), mouse = new THREE.Vector2(), tip = $("v-tip");
-function outline(p, tile, side) {
-  const d = p.design, i = tile % tx, j = Math.floor(tile / tx), z = d.t_mm[tile] / 2 + 0.6;
-  const at = (ii, jj) => [side * (ii * a + scale * d.ux_mm[node(ii, jj)]), jj * a + scale * d.uy_mm[node(ii, jj)], z];
-  const c = [at(i * rf, j * rf), at((i + 1) * rf, j * rf), at((i + 1) * rf, (j + 1) * rf), at(i * rf, (j + 1) * rf)];
+function outline(p, e, side) {
+  const d = displacement(p.design, fraction), i = e % nx, j = Math.floor(e / nx);
+  const z = heightOf(p.design.rho[e]) / 2 + 0.25;
+  const at = (ii, jj) => [ii * a + (d ? d.ux[node(ii, jj)] : 0), side * (jj * a + (d ? d.uy[node(ii, jj)] : 0)), z];
+  const c = [at(i, j), at(i + 1, j), at(i + 1, j + 1), at(i, j + 1)];
   setLines(p.pick, [0, 1, 2, 3].flatMap((k) => [...c[k], ...c[(k + 1) % 4]]));
   p.pick.visible = true;
 }
@@ -252,20 +263,20 @@ function inspect(k, ev) {
   const hit = ray.intersectObject(p.mesh)[0];
   for (const q of panels) q.pick.visible = false;
   if (!hit) { tip.hidden = true; return render(); }
-  const id = p.faceTile[hit.faceIndex], side = Math.sign(id), tile = Math.abs(id) - 1;
-  const i = tile % tx, j = Math.floor(tile / tx), d = p.design;
-  const corners = [node(i * rf, j * rf), node((i + 1) * rf, j * rf), node((i + 1) * rf, (j + 1) * rf), node(i * rf, (j + 1) * rf)];
+  const id = p.faceElement[hit.faceIndex], side = Math.sign(id), e = Math.abs(id) - 1;
+  const i = e % nx, j = Math.floor(e / nx), d = p.design, full = d.path ? d.path[d.path.length - 1] : null;
+  const corners = [node(i, j), node(i + 1, j), node(i + 1, j + 1), node(i, j + 1)];
   const mean = (v) => corners.reduce((s, n) => s + v[n], 0) / 4;
-  const u = d.utilization[tile];
-  tip.innerHTML = `<b>Tile (${i + 1}, ${j + 1})</b> at x = ${(side * (i + 0.5) * rf * a).toFixed(0)} mm, y = ${((j + 0.5) * rf * a).toFixed(0)} mm<br>
-    Thickness ${d.t_mm[tile].toFixed(2)} mm<br>
-    Von Mises stress ${(u * limits.stress).toFixed(0)} MPa, ${(100 * u).toFixed(0)}% of the allowable: <b>${u > 1 ? "over the limit" : "within the limit"}</b><br>
-    Displacement ${(side * mean(d.ux_mm)).toFixed(2)} mm along the span, ${mean(d.uy_mm).toFixed(2)} mm vertical`;
+  const u = d.utilization ? d.utilization[e] : 0;
+  tip.innerHTML = `<b>Element (${i + 1}, ${j + 1})</b> at x = ${((i + 0.5) * a).toFixed(1)} mm, y = ${(side * (j + 0.5) * a).toFixed(1)} mm<br>
+    Density ${d.rho[e].toFixed(2)}<br>
+    Von Mises stress at full force ${(u * limits.stress).toFixed(1)} MPa, ${(100 * u).toFixed(0)}% of the allowable: <b>${u > 1 ? "over the limit" : "within the limit"}</b>` +
+    (full ? `<br>Displacement at full force ${mean(full.ux_mm).toFixed(2)} mm in x, ${(side * mean(full.uy_mm)).toFixed(2)} mm in y` : "");
   tip.hidden = false;
   const box = root.getBoundingClientRect();
   tip.style.left = `${Math.max(4, Math.min(ev.clientX - box.left + 14, box.width - tip.offsetWidth - 4))}px`;
   tip.style.top = `${ev.clientY - box.top + 14}px`;
-  for (const q of panels) outline(q, tile, side);   // the same tile in both panels
+  for (const q of panels) if (heightOf(q.design.rho[e]) > 0) outline(q, e, side);   // the same element in both panels
   render();
 }
 panels.forEach((p, k) => {
