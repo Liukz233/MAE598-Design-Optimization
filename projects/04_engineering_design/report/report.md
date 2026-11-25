@@ -297,9 +297,9 @@ but $\Pi$ is now a quartic function of $\mathbf u$ and no longer convex. Newton'
 - Elements below a density of 0.2 use the linear strain. This switch makes the model slightly discontinuous in the design. The gradients are exact as long as no element sits exactly at the switch.
 - The model is 2D with one load level, and there is no fatigue check. A thin plate can also buckle out of its plane.
 
-**AI use.** The plan and the basic approach are mine: build on my Project 1 code instead of starting a new solver, take a structure from the course menu that keeps the SIMP parameterization, and keep the model 2D and simple. Two earlier versions, a heat-spreader plate and a variable-thickness beam, were dropped along the way. The first had little to do with Projects 1 to 3, and the second is not on the menu. A coding agent (Claude) assisted with writing the scripts (`mech.py`, `mma.py`, `problem.py`, `verify.py`, `run_all.py`, `make_site.py` and the three.js viewer) and with drafting this report. To check its work, the exact answers in the ladder are closed forms written out in Section 3, a separate integration of the elastica, or a value from my Project 1 report, so none of them depends on the solver being tested. Every row of the ladder is recomputed each time the results are regenerated.
+**AI use.** The plan and the basic approach are mine. A coding agent (Claude) assisted with writing the scripts and drafting this report. Its work is checked by the verification ladder in Section 3, where the exact answers do not depend on the solver.
 
-One bug the verification caught was in the line search. The first version of Newton's method halved the step until the residual norm decreased. On the cantilever benchmark (V5 b) it stalled at a residual of 0.12 and never converged, even with the load applied in eight steps. In a slender member a full Newton step first rotates the member and then removes the stretch this causes, so the residual can rise while the energy falls. The line search now tests the potential energy instead, and the benchmark converges and agrees with the elastica to 0.7%.
+One bug the verification caught: the first line search in Newton's method tested the residual norm and stalled on the cantilever benchmark (V5 b). It now tests the potential energy, and the benchmark agrees with the elastica to 0.7%.
 
 ## Reproduction
 
