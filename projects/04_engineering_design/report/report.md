@@ -8,15 +8,15 @@
 
 A compliant gripper is one piece of material with no pins or sliding joints. An actuator pushes on one side, the piece bends, and two jaws close on an object. The design question is where to put material so that the jaws move as far as possible.
 
-This is the same kind of problem as the beam of Projects 1 to 3, a material layout in 2D elasticity found with SIMP, and it is built on the [Project 1](https://github.com/Liukz233/MAE598-Design-Optimization/blob/main/projects/01_problem_formulation/report/report.md) code: the mesh numbering, the element matrix and the density filter are imported from `top88.py`. Three things are new. The objective is a motion instead of a stiffness. The displacements are large, so the equilibrium equation is nonlinear and is solved by Newton's method. And the design has to respect a stress limit and the stroke of the actuator.
+The gripper is on the course menu, and it is close to what I did in Projects 1 to 3: a material layout in 2D elasticity, found with SIMP. I built it on my [Project 1](https://github.com/Liukz233/MAE598-Design-Optimization/blob/main/projects/01_problem_formulation/report/report.md) code. The mesh numbering, the element matrix and the density filter are imported from `top88.py`. Compared with Project 1, the objective is a motion instead of a stiffness, the displacements are large enough that equilibrium is nonlinear and has to be solved by Newton's method, and there are limits on the stress and on the actuator stroke.
 
 The gripper is 100 × 100 × 5 mm, made of polypropylene, and driven by 20 N. There are 1,800 design variables, one density per element.
 
 - The optimized gripper closes each jaw by 3.86 mm for an actuator stroke of 5.00 mm. The stroke and the stress are at their limits of 5 mm and 22.7 MPa. It uses 19% of the design area, where 30% was allowed.
-- Linear analysis misjudges the device. The layout optimized with linear analysis is predicted to close by 4.05 mm. With large displacements included it closes by 3.63 mm, so the linear prediction is 12% too high, and it leaves 0.6 mm of the stroke unused.
-- Continuing the optimization with the large-displacement solver gives 6% more closing with 36% less material.
-- Newton's method converges in 12 iterations from rest, with an energy-based line search. The adjoint at the converged state gives the three gradients in 0.57 s; finite differences would take about 17 min.
-- The solver passes all 21 checks of the verification ladder (Section 3). They include a large-deflection cantilever against the elastica, and the Project 1 compliance of 210.04 reproduced to 10 digits.
+- The layout optimized with linear analysis is predicted to close by 4.05 mm. With large displacements included it closes by 3.63 mm, so the linear prediction is 12% too high. That layout also leaves 0.6 mm of the stroke unused.
+- Continuing the optimization from that layout with the large-displacement solver gives 6% more closing with 36% less material.
+- Newton's method converges in 12 iterations from rest, with an energy-based line search. The adjoint at the converged state gives the three gradients in 0.57 s. Finite differences would take about 17 min.
+- The solver passes all 21 checks of the verification ladder (Section 3). Two of them are a large-deflection cantilever compared with the elastica, and the Project 1 compliance of 210.04, which the new solver reproduces to 10 digits.
 
 ![Optimized layouts](../site/assets/fig_designs.png)
 
@@ -26,7 +26,7 @@ The gripper is 100 × 100 × 5 mm, made of polypropylene, and driven by 20 N. Th
 
 ## 1. Structure and formulation
 
-**Why it matters.** Compliant grippers are used where joints are a problem: in small devices, in clean or wet environments, and in parts that are moulded or printed in one piece. All of the motion comes from elastic bending, so the layout decides both how far the jaws move and how hard the material is strained.
+**Background.** Compliant grippers are used where pins and bearings are unwanted, for example in small devices or in parts that are moulded in one piece. All of the motion comes from elastic bending, so the layout decides how far the jaws move and also how hard the material is strained.
 
 **Setup.** The gripper is symmetric about its centre line, and the upper half is modelled.
 
@@ -68,7 +68,7 @@ where the displacements solve the state equation of Section 2 and $\bar\rho$ is 
 a_{\max}\le \mathrm{KS}(\mathbf a)\le a_{\max}+\frac{\ln N}{\rho_{KS}} ,
 ```
 
-with $\rho_{KS}=40$ and $N=1,692$. The aggregate is on the safe side; the tables report the true peak.
+with $\rho_{KS}=40$ and $N=1,692$. KS is never below the true maximum, so the constraint is conservative. The tables report the true peak.
 
 ## 2. Analysis model
 
@@ -82,7 +82,7 @@ with $\rho_{KS}=40$ and $N=1,692$. The aggregate is on the safe side; the tables
 
 with $\mathbf C$ the plane-stress matrix for unit modulus. The term $\mathbf H^{\mathsf T}\mathbf H$ is what a linear analysis drops. It makes the strain zero under any rigid rotation, which the linear strain does not (check V4). This law is accurate when rotations are large and strains are small, which is the case here: the stress limit keeps the strain below 1.6%. Boundary conditions: $\mathbf u=\mathbf 0$ at the clamp, $u_y=0$ on the centre line, the actuator force on the left pad, and the object's spring on the jaw face.
 
-**Discretization.** 60 × 30 four-node bilinear elements of 1.67 mm (3,719 unknowns). The element numbering, the linear element matrix and the filter come from [`top88.py`](https://github.com/Liukz233/MAE598-Design-Optimization/blob/main/projects/01_problem_formulation/src/top88.py) of Project 1 [4], imported and not copied. [`mech.py`](https://github.com/Liukz233/MAE598-Design-Optimization/blob/main/projects/04_engineering_design/src/mech.py) adds the finite-strain element, Newton's method, stresses and the adjoint. No FE library is used. The discrete residual and its tangent are
+**Discretization.** 60 × 30 four-node bilinear elements of 1.67 mm (3,719 unknowns). The element numbering, the linear element matrix and the filter come from [`top88.py`](https://github.com/Liukz233/MAE598-Design-Optimization/blob/main/projects/01_problem_formulation/src/top88.py) of Project 1 [4] and are imported directly. [`mech.py`](https://github.com/Liukz233/MAE598-Design-Optimization/blob/main/projects/04_engineering_design/src/mech.py) adds the finite-strain element, Newton's method, stresses and the adjoint. No FE library is used. The discrete residual and its tangent are
 
 ```math
 \begin{aligned}
@@ -112,7 +112,7 @@ where $\mathbf B(\mathbf u)$ maps nodal displacements to the variation of $\math
 | 1.67 | 3,719 | 3.86 | 5.00 | 22.2 |
 | 0.83 | 14,639 | 3.94 | 5.19 | 30.7 |
 
-The finer mesh is more flexible: the closing changes by 2% and the stroke by 4%, because thin members are only a few bilinear elements wide, and these are too stiff in bending. The peak stress changes by 38%: it is taken at element centres, and on a finer mesh the centres move closer to the corners of the staircase boundary. Both points are taken up in Section 10.
+The finer mesh is more flexible. The closing changes by 2% and the stroke by 4%, because thin members are only a few bilinear elements wide, and these are too stiff in bending. The peak stress changes by 38%. It is taken at element centres, and on a finer mesh the centres move closer to the corners of the staircase boundary. I come back to both points in Section 10.
 
 ## 3. Verification
 
@@ -144,17 +144,17 @@ All checks run from [`verify.py`](https://github.com/Liukz233/MAE598-Design-Opti
 
 Where the exact value is zero, the error is the difference divided by a reference value of the same quantity.
 
-Where the exact answers come from:
+The exact answers come from the following.
 
 **V1, exact solutions at small strain.** A plate pulled by a uniform stress $s$ stretches by $sL/E$ and narrows by $\nu sH/E$, and bilinear elements must reproduce this to round-off. For pure bending, an end stress $\sigma_{xx}=-M(y-H/2)/I$ is an exact solution of plane-stress elasticity with curvature $M/(EI)$, so the mid-depth line rises by $ML^2/(2EI)$ over the length $L$ [7].
 
-**V2, convergence rate.** Bilinear elements cannot represent bending exactly. The error of that deflection should fall with the square of the element size; the measured slope is 1.99.
+**V2, convergence rate.** Bilinear elements cannot represent bending exactly. The error of that deflection should fall with the square of the element size. The measured slope is 1.99.
 
 **V3, force balance.** The clamp is the only horizontal support, so its horizontal reaction must equal the actuator force on the half model, $F/2$. This holds at large displacement too, because a rigid translation does no internal work.
 
-**V4, invariance and Project 1.** An unsupported plate has three rigid-body modes, so its stiffness matrix must have exactly three zero eigenvalues. A rigid rotation by 40° must produce no internal force in the finite-strain element; the error is given relative to the force the linear element produces for the same displacement. And with the density field, unit modulus and unit load of Project 1, the solver in linear mode must return the compliance published there, 210.0406.
+**V4, invariance and Project 1.** An unsupported plate has three rigid-body modes, so its stiffness matrix must have exactly three zero eigenvalues. A rigid rotation by 40° must produce no internal force in the finite-strain element. The error is given relative to the force the linear element produces for the same displacement. Finally, with the density field, unit modulus and unit load of Project 1, the solver in linear mode must return the compliance published there, 210.0406.
 
-**V5, large displacement.** (a) A plate under a dead load $P$ per unit undeformed area stretches uniformly by $\lambda$, with $P=E\,\lambda(\lambda^2-1)/2$ for this material law; the test uses $P=0.2E$, a stretch of 15%. (b) A slender cantilever with an end load $2EI/L^2$ is compared with the elastica, $\theta''=-(P/EI)\cos\theta$, which the script integrates on its own by shooting. The beam is 20 times longer than deep, with 8 elements through the depth; the small differences are the shear and axial flexibility that the elastica leaves out, and the mesh. (c) The tangent matrix must be the exact derivative of the residual, so $\mathbf K_T\mathbf v$ is compared with a central difference of the internal force along a random direction $\mathbf v$, at a perturbed state of the reported design. On that design Newton's method needs 12 iterations from rest, several of them with a shortened step. Started from the solution at 90% of the force, its relative residuals are 1.0e-01, 2.9e+00, 5.4e-04, 2.2e-07, 8.7e-12 (middle panel below). The first step raises the residual while it lowers the energy, which the line search allows. After that each step reduces the residual by more than three orders of magnitude, until round-off is reached near $10^{-11}$. The sequence is too short to fit a convergence order, so I do not quote one. (d) The residual is the gradient of the potential energy $\Pi$ of Section 8, so a central difference of $\Pi$ along a random direction must equal $\mathbf R^{\mathsf T}\mathbf v$.
+**V5, large displacement.** (a) A plate under a dead load $P$ per unit undeformed area stretches uniformly by $\lambda$, with $P=E\,\lambda(\lambda^2-1)/2$ for this material law. The test uses $P=0.2E$, a stretch of 15%. (b) A slender cantilever with an end load $2EI/L^2$ is compared with the elastica, $\theta''=-(P/EI)\cos\theta$, which the script integrates on its own by shooting. The beam is 20 times longer than deep, with 8 elements through the depth. The small differences come from the shear and axial flexibility that the elastica leaves out, and from the mesh. (c) The tangent matrix must be the exact derivative of the residual, so $\mathbf K_T\mathbf v$ is compared with a central difference of the internal force along a random direction $\mathbf v$, at a perturbed state of the reported design. On that design Newton's method needs 12 iterations from rest, several of them with a shortened step. Started from the solution at 90% of the force, its relative residuals are 1.0e-01, 2.9e+00, 5.4e-04, 2.2e-07, 8.7e-12 (middle panel below). The first step raises the residual while it lowers the energy, which the line search allows. After that each step reduces the residual by more than three orders of magnitude, until round-off is reached near $10^{-11}$. The sequence is too short to fit a convergence order, so I do not quote one. (d) The residual is the gradient of the potential energy $\Pi$ of Section 8, so a central difference of $\Pi$ along a random direction must equal $\mathbf R^{\mathsf T}\mathbf v$.
 
 **V6, gradients.** See Section 4.
 
@@ -181,7 +181,7 @@ Newton's iterations are not differentiated. By the implicit function theorem onl
 \frac{dc}{d\rho_e}=-p\,\rho_e^{\,p-1}(E_0-E_{\min})\,\mathbf u_e^{\mathsf T}\mathbf k_0\,\mathbf u_e ,
 ```
 
-the sensitivity Project 1 used. Compliance is self-adjoint and needs no extra solve; the adjoint code reproduces this formula (last row of the ladder). The closing of a jaw is not self-adjoint. Its sensitivity has both signs, which is why the OC update of Project 1 cannot be used here.
+the sensitivity Project 1 used. Compliance is self-adjoint and needs no extra solve. The adjoint code reproduces this formula (last row of the ladder). The closing of a jaw is not self-adjoint. Its sensitivity has both signs, which is why the OC update of Project 1 cannot be used here.
 
 **Gradient check.** Directional derivatives $\nabla g\cdot\mathbf v$ from the adjoint against central differences, at a random design, for two random directions per response (worst case shown). There is one kind of variable, element density.
 
@@ -217,7 +217,7 @@ In the Taylor test (right panel of the figure in Section 3) the central-differen
 | Uniform density 0.3, linear analysis only | 300 | 3.63 | 4.43 | 19.5 | 30 | ✓ pass |
 | Uniform density 0.5, linear analysis only | 300 | 3.66 | 4.61 | 21.6 | 30 | ✓ pass |
 
-Starting the large-displacement optimization from the uniform plate gives a worse layout than starting it from the linear optimum. The reported design is the best one found, not a proven global optimum.
+Starting the large-displacement optimization from the uniform plate gives a worse layout than starting it from the linear optimum, which is why I run the two stages. The reported design is the best of these runs. I cannot claim it is the global optimum.
 
 **Active constraints and multipliers.** At the reported design the stroke and stress constraints are active and the material constraint is not. MMA's multipliers are $\lambda_s=1.887$, $\lambda_\sigma=0.110$ and $\lambda_V=0.000$. Of the variables, 1,362 are at 0, 320 at 1 and 118 in between. On the free variables the stationarity residual $\nabla f+\sum\lambda\nabla g$ is at most 5.6% of the largest component of $\nabla f$.
 
@@ -228,11 +228,9 @@ A multiplier is the rate at which the best closing grows when its limit is relax
 \frac{d\delta^\star}{d\sigma_{\text{allow}}}=\frac{\lambda_\sigma\,(1\,\text{mm})}{\sigma_{\text{allow}}} .
 ```
 
-- **Stroke:** 0.38 mm more closing for each extra millimetre of actuator stroke. Re-optimizing with 0.1 mm more stroke gives 0.38 mm per mm.
-- **Stress:** 0.005 mm more closing for each extra MPa of allowable stress.
-- **Material:** nothing. The design uses 19% where 30% is allowed.
+For the stroke this gives 0.38 mm more closing for each extra millimetre of actuator stroke. Re-optimizing with 0.1 mm more stroke gives 0.38 mm per mm, which agrees. For the stress it gives 0.005 mm more closing for each extra MPa of allowable stress. The material multiplier is zero, because the design uses 19% where 30% is allowed.
 
-In engineering terms: this gripper is limited by its actuator and by its material's strength, not by how much material it may use. A longer-stroke actuator would help most. A stronger grade of plastic would help a little, and a larger budget would not help at all.
+So the actuator stroke is what limits this gripper most. A stronger plastic would help a little, and a larger material budget would not help.
 
 ## 6. Nonlinear component (N2)
 
@@ -247,11 +245,11 @@ The nonlinear part of the model is the finite strain in the state equation. To s
 
 ![Layouts from linear and large-displacement analysis](../site/assets/fig_designs.png)
 
-Linear analysis predicts that its optimum closes by 4.05 mm at the full stroke. The large-displacement analysis of the same layout gives 3.63 mm at a stroke of 4.43 mm. The linear model overestimates how far the actuator pushes in and how far the jaws close, by 12%. In the left panel below, the solid curves of that layout bend away from the dashed straight lines of the linear model as the force grows: its members rotate and stretch, and the device stiffens.
+Linear analysis predicts that its optimum closes by 4.05 mm at the full stroke. The large-displacement analysis of the same layout gives 3.63 mm at a stroke of 4.43 mm. The linear model overestimates how far the actuator pushes in and how far the jaws close, by 12%. In the left panel below, the solid curves of that layout bend away from the dashed straight lines of the linear model as the force grows. Its members rotate and stretch, and the device gets stiffer.
 
 ![Force against closing and stroke for the two layouts](../site/assets/fig_nonlinear.png)
 
-The linear optimum is therefore safe but wasteful. It meets every limit, with 0.6 mm of stroke unused. The large-displacement optimization spends that margin: it removes material until the stroke and the stress are both at their limits again, and gains 6% of closing with 36% less material. The reported layout also behaves more linearly (right panel): the two analyses differ by 3% on it. Even so, linear analysis would reject it, because it would appear to exceed the stroke and the stress limits (last column of the table). That large-displacement analysis is needed to design compliant mechanisms is a known result [9].
+So the linear optimum meets every limit but leaves 0.6 mm of stroke unused. The large-displacement optimization uses that margin. It removes material until the stroke and the stress are both at their limits again, and gains 6% of closing with 36% less material. The reported layout also behaves more linearly (right panel), and the two analyses differ by only 3% on it. Linear analysis would still reject it, because it predicts a stroke and a stress above the limits (last column of the table). The need for large-displacement analysis in the design of compliant mechanisms is known from the literature [9].
 
 ## 7. Results
 
@@ -271,15 +269,17 @@ The jaw travel is 0.77 times the actuator stroke.
 
 ## 8. Relation to Projects 1 to 3
 
-- **Project 1.** Same parameterization (SIMP with $p=3$, density filter) and the same mesh numbering and element matrix, imported from its code. Its compliance is reproduced (V4) and its sensitivity formula is the self-adjoint special case of the adjoint used here (Section 4). What changed is the question: motion instead of stiffness, with limits on stress and stroke, which needs MMA in place of OC.
-- **Project 2.** Project 2 studied the cost of the equilibrium solve $K\mathbf u=\mathbf F$ and showed that the condition number grows with the stiffness contrast between solid and void. Here that solve is repeated inside Newton's method with the tangent matrix. The contrast is $10^{6}$ instead of $10^{9}$, and the 2D systems are factorized directly.
-- **Project 3.** Projects 2 and 3 wrote equilibrium as the minimum of a potential energy, and Project 3 trained a network on it. The state equation here is still the stationarity condition of an energy,
+**Project 1.** The parameterization is the same (SIMP with $p=3$ and the density filter), and the mesh numbering and element matrix are imported from its code. Its compliance is reproduced (V4), and its sensitivity formula is the self-adjoint special case of the adjoint used here (Section 4). The objective is now a motion and there are stress and stroke limits, so OC is replaced by MMA.
+
+**Project 2.** Project 2 studied the cost of the equilibrium solve $K\mathbf u=\mathbf F$ and showed that the condition number grows with the stiffness contrast between solid and void. Here that solve is repeated inside Newton's method with the tangent matrix. The contrast is $10^{6}$ instead of $10^{9}$, and the 2D systems are factorized directly.
+
+**Project 3.** Projects 2 and 3 wrote equilibrium as the minimum of a potential energy, and Project 3 trained a network on it. The state equation here is still the stationarity condition of an energy,
 
 ```math
 \Pi(\mathbf u)=\sum_e E_e\int_{\Omega_e}\tfrac12\,\mathbf E^{\mathsf T}\mathbf C\,\mathbf E\;dV+\tfrac12\mathbf u^{\mathsf T}\mathbf K_s\mathbf u-\mathbf F^{\mathsf T}\mathbf u,\qquad \nabla\Pi=\mathbf R ,
 ```
 
-  but $\Pi$ is now a quartic function of $\mathbf u$ and no longer convex. Newton's line search uses it (Section 2) and check V5 d verifies it. Project 3 named a nonlinear benchmark as the next test for an energy-trained network; this solver provides the energy and the reference solution for one.
+but $\Pi$ is now a quartic function of $\mathbf u$ and no longer convex. Newton's line search uses it (Section 2) and check V5 d verifies it. The next step named in Project 3 was a hyperelastic benchmark. This solver gives the energy and an FE reference for a geometrically nonlinear one.
 
 ## 9. Bonus
 
@@ -289,17 +289,17 @@ The jaw travel is 0.77 times the actuator stroke.
 
 **Limitations.**
 
-- **Grey material.** 26% of the free elements have a density between 0.1 and 0.9, They are the edges of the members, which the filter blurs as in Project 1, and a few thin grey links that the optimizer uses as hinges, such as the vertical one between the two jaws. A part cut from this layout needs a threshold, the hinges have to be redrawn as real flexures, and the performance has to be checked again after that.
-- **Mesh.** With every element split into four, the same layout closes 2% further and uses 4% more stroke, so on the finer mesh it would exceed the stroke limit slightly. A final design should be optimized on a finer mesh or with a margin.
-- **Stress.** The stress is taken at element centres and multiplied by the density. It is underestimated in grey elements, and its peak rises by 38% under that refinement, because the staircase boundary has corners. The reported peak is a comparative measure for this mesh, not a certified stress.
-- **Local optima.** Section 5 shows two different layouts from two starts.
-- **Material.** Polypropylene is not linear elastic near its yield strength, and it creeps under a sustained grip. The St. Venant–Kirchhoff law is only valid at small strain, which the stress limit ensures in the solid.
-- **Near-empty elements use the linear strain.** The switch at a density of 0.2 makes the model slightly discontinuous in the design; the gradients are exact wherever no element sits exactly at the switch.
-- 2D, one load level, no fatigue check. A thin plate can also buckle out of its plane.
+- 26% of the free elements have a density between 0.1 and 0.9. Some are the edges of the members, which the filter blurs as in Project 1. The others are a few thin grey links that the optimizer uses as hinges, such as the vertical one between the two jaws. A part cut from this layout needs a threshold, the hinges have to be redrawn as real flexures, and the performance has to be checked again after that.
+- The result depends on the mesh. With every element split into four, the same layout closes 2% further and uses 4% more stroke, so on the finer mesh it would slightly exceed the stroke limit. A final design should be optimized on a finer mesh or with a margin.
+- The stress is taken at element centres and multiplied by the density. It is underestimated in grey elements, and its peak rises by 38% under that refinement because the staircase boundary has corners. The reported peak is only good for comparing designs on this mesh.
+- The problem has local optima. Section 5 shows different layouts from different starts.
+- Polypropylene is not linear elastic near its yield strength, and it creeps under a sustained grip. The St. Venant–Kirchhoff law is only valid at small strain, which the stress limit ensures in the solid.
+- Elements below a density of 0.2 use the linear strain. This switch makes the model slightly discontinuous in the design. The gradients are exact as long as no element sits exactly at the switch.
+- The model is 2D with one load level, and there is no fatigue check. A thin plate can also buckle out of its plane.
 
-**AI use.** I worked with a coding agent (Claude). It proposed the formulation and the numbers in Section 1, wrote the solver, the adjoint, the MMA routine, the verification and optimization scripts, and the three.js viewer, and drafted the text of this page. The exact answers in the ladder are closed forms written out in Section 3, an independent integration of the elastica, or a value published in the Project 1 report, so that they can be checked independently of the solver. Every row of that table is recomputed whenever the results are regenerated.
+**AI use.** The plan and the basic approach are mine: build on my Project 1 code instead of starting a new solver, take a structure from the course menu that keeps the SIMP parameterization, and keep the model 2D and simple. Two earlier versions, a heat-spreader plate and a variable-thickness beam, were dropped along the way. The first had little to do with Projects 1 to 3, and the second is not on the menu. A coding agent (Claude) assisted with writing the scripts (`mech.py`, `mma.py`, `problem.py`, `verify.py`, `run_all.py`, `make_site.py` and the three.js viewer) and with drafting this report. To check its work, the exact answers in the ladder are closed forms written out in Section 3, a separate integration of the elastica, or a value from my Project 1 report, so none of them depends on the solver being tested. Every row of the ladder is recomputed each time the results are regenerated.
 
-One bug the verification caught: the first version of Newton's method halved the step until the residual norm decreased. On the cantilever benchmark (V5 b) it stalled at a residual of 0.12 and never converged, even with the load applied in eight steps. In a slender member a full Newton step first rotates the member and then removes the stretch this causes, so the residual can rise while the energy falls. The line search now tests the potential energy instead, and the benchmark converges and agrees with the elastica to 0.7%.
+One bug the verification caught was in the line search. The first version of Newton's method halved the step until the residual norm decreased. On the cantilever benchmark (V5 b) it stalled at a residual of 0.12 and never converged, even with the load applied in eight steps. In a slender member a full Newton step first rotates the member and then removes the stretch this causes, so the residual can rise while the energy falls. The line search now tests the potential energy instead, and the benchmark converges and agrees with the elastica to 0.7%.
 
 ## Reproduction
 
